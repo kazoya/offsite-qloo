@@ -50,6 +50,8 @@ const FIT_TAGS: Record<string, { en: string; ar: string; kinds: ("dinner" | "act
 };
 const HOTEL_TAG = "urn:tag:genre:place:hotel";
 const MAX_OPTIONS = 3;
+/** Only drop dietary-unconfirmed venues when enough confirmed ones remain to offer distinct dinners. */
+const MIN_DISTINCT_DINNERS = 3;
 
 const tagIds = (p: QlooPlace) => new Set(p.tags.map((t) => t.id));
 
@@ -289,17 +291,19 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   // (a missing tag is not proof either way, so we never present them next to confirmed ones).
   const confirmedDinners = dinners.filter((d) => d.dietaryUnconfirmed.length === 0);
   let dinnerPool = dinners;
-  if (needs.length > 0 && confirmedDinners.length > 0 && confirmedDinners.length < dinners.length) {
+  if (needs.length > 0 && confirmedDinners.length >= MIN_DISTINCT_DINNERS && confirmedDinners.length < dinners.length) {
     dinnerPool = confirmedDinners;
     warnings.push(
       `${dinners.length - confirmedDinners.length} restaurants were left out because Qloo does not confirm all dietary needs for them.`,
     );
   }
   const topD = dinnerPool.slice(0, 8);
+  const byConfirmedThenScore = (x: { d: Candidate; score: number }, y: { d: Candidate; score: number }) =>
+    Number(x.d.dietaryUnconfirmed.length > 0) - Number(y.d.dietaryUnconfirmed.length > 0) || y.score - x.score;
   const topA = activities.slice(0, 8);
   const combos = topD
     .flatMap((d) => topA.map((a) => ({ d, a, score: COMBO.dinner * d.score.total + COMBO.activity * a.score.total })))
-    .sort((x, y) => y.score - x.score);
+    .sort(byConfirmedThenScore);
 
   const label = (d: Candidate, a: Candidate) => `${d.place.nameEn} + ${a.place.nameEn}`;
   const money = (d: Candidate, a: Candidate) => {
@@ -333,7 +337,7 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   }
 
   // Rank follows the blended score (selection order only decides which combos make the shortlist).
-  picked.sort((x, y) => y.score - x.score);
+  picked.sort(byConfirmedThenScore);
 
   // Audit every shortlisted decision plus the best rejected ones (so rejections are visible and justified).
   const options: PlanOption[] = picked.map((c, i) => {

@@ -103,6 +103,17 @@ describe("planner (fake Qloo, synthetic venues)", () => {
     // D2 (sushi) has vegetarian but not halal -> must not outrank the fully confirmed D1/D3.
     const dinnerOrder = plan.options.map((o) => o.dinner.place.entityId);
     expect(dinnerOrder.indexOf("D2")).toBe(-1);
+    expect(plan.warnings.join()).toMatch(/left out.*dietary/);
+  });
+
+  it("keeps unconfirmed venues (flagged, ranked after confirmed ones) when too few confirmed venues exist", async () => {
+    const few = DINNERS.filter((d) => ["D1", "D2", "D5"].includes(d.entityId));
+    const plan = await planOffsite({ ...base, budgetPerPerson: 200 }, { qloo: new FakeQloo(few), now: FIXED });
+    const flags = plan.options.map((o) => o.dinner.dietaryUnconfirmed.length > 0);
+    expect(flags[0]).toBe(false);
+    expect(flags).toContain(true);
+    expect([...flags].sort()).toEqual(flags); // confirmed (false) strictly before unconfirmed (true)
+    expect(plan.options.find((o) => o.dinner.dietaryUnconfirmed.length > 0)!.dinner.reasons.map((r) => r.kind)).toContain("dietary_unconfirmed");
   });
 
   it("applies the approval threshold and logs every decision, including rejected over-budget combos", async () => {

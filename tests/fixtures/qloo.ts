@@ -67,6 +67,8 @@ export const DINNERS: QlooPlace[] = [
     tags: [R + "lebanese", D + "halal", D + "vegetarian", "urn:tag:event:place:work_dinner"], explain: [{ entityId: SEED_FAIRUZ, score: 0.65 }, { entityId: SEED_DIAB, score: 0.35 }] }),
   place({ entityId: "D2", nameEn: "Test Sushi Bar", affinity: 0.7, priceLevel: 3, rating: 4.4, tags: [R + "japanese", D + "vegetarian"] }),
   place({ entityId: "D3", nameEn: "Test Fine Steak", affinity: 0.95, priceLevel: 4, rating: 4.9, tags: [R + "steak_house", D + "halal", D + "vegetarian"] }),
+  place({ entityId: "D6", nameEn: "Test Mezze Corner", affinity: 0.5, priceLevel: 2, rating: 4.0, tags: [R + "lebanese", D + "halal", D + "vegetarian"] }),
+  place({ entityId: "D7", nameEn: "Test Garden Kitchen", affinity: 0.45, priceLevel: 1, rating: 3.9, tags: [R + "lebanese", D + "halal", D + "vegetarian"] }),
   place({ entityId: "D4", nameEn: "Test Closed Grill", affinity: 1, priceLevel: 1, isClosed: true, tags: [R + "grill", D + "halal", D + "vegetarian"] }),
   place({ entityId: "D5", nameEn: "Test Unpriced Pizza", affinity: 0.4, priceLevel: undefined, rating: undefined, tags: [R + "pizza"] }),
 ];
