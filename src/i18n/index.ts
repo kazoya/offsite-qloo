@@ -104,3 +104,10 @@ export function renderReason(r: Reason, l: Lang): string {
 
 export const money = (n: number, currency: string, l: Lang) =>
   `${n.toLocaleString(l === "ar" ? "ar-JO-u-nu-latn" : "en-US", { maximumFractionDigits: n < 10 ? 1 : 0 })} ${currency}`;
+
+export const RULE_LABEL: Record<string, Record<Lang, string>> = {
+  R1: { en: "Cost per person exceeds the budget per person", ar: "التكلفة للشخص تتجاوز الميزانية للشخص" },
+  R2: { en: "Total spend exceeds the manager-approval threshold", ar: "إجمالي الإنفاق يتجاوز حد موافقة المدير" },
+  R3: { en: "Within budget and under the approval threshold", ar: "ضمن الميزانية وتحت حد الموافقة" },
+};
+export const ruleText = (rule: string, l: Lang) => RULE_LABEL[rule.slice(0, 2)]?.[l] ?? rule;
