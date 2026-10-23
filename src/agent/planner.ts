@@ -126,13 +126,14 @@ function scoreCandidates(places: QlooPlace[], ctx: ScoreCtx): Candidate[] {
       }
       // Qloo explainability: which artist seeds drove this venue.
       const seedBy = new Map(ctx.profile.artists.map((a) => [a.entityId, a]));
-      // Scores are each seed's share of the match (they sum to 1), so only the dominant seed is shown.
+      // Scores are each seed's share of the match (they sum to 1): with a single effective seed the share is trivially 100%,
+      // so an explanation is only emitted when at least two seeds compete, and only for the dominant one.
       const linked = p.explain
         .filter((x) => seedBy.has(x.entityId))
         .sort((a, b) => b.score - a.score);
       for (const x of linked) covered.add(seedBy.get(x.entityId)!.member);
       const top = linked[0];
-      if (top && top.score >= 0.5) {
+      if (top && linked.length >= 2 && top.score >= 0.5) {
         const a = seedBy.get(top.entityId)!;
         reasons.push({ kind: "artist_link", members: [a.member], labelEn: a.name, labelAr: a.name, value: top.score });
       }
@@ -284,7 +285,17 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   });
 
   // ---- Combine, apply budget + approval policy ----------------------------------------------------
-  const topD = dinners.slice(0, 8);
+  // Dietary safety: when venues with Qloo-confirmed dietary tags exist, venues without confirmation are left out
+  // (a missing tag is not proof either way, so we never present them next to confirmed ones).
+  const confirmedDinners = dinners.filter((d) => d.dietaryUnconfirmed.length === 0);
+  let dinnerPool = dinners;
+  if (needs.length > 0 && confirmedDinners.length > 0 && confirmedDinners.length < dinners.length) {
+    dinnerPool = confirmedDinners;
+    warnings.push(
+      `${dinners.length - confirmedDinners.length} restaurants were left out because Qloo does not confirm all dietary needs for them.`,
+    );
+  }
+  const topD = dinnerPool.slice(0, 8);
   const topA = activities.slice(0, 8);
   const combos = topD
     .flatMap((d) => topA.map((a) => ({ d, a, score: COMBO.dinner * d.score.total + COMBO.activity * a.score.total })))
@@ -320,6 +331,9 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
     if (picked.length >= MAX_OPTIONS) break;
     if (!picked.includes(c) && !picked.some((p) => p.d === c.d && p.a === c.a)) picked.push(c);
   }
+
+  // Rank follows the blended score (selection order only decides which combos make the shortlist).
+  picked.sort((x, y) => y.score - x.score);
 
   // Audit every shortlisted decision plus the best rejected ones (so rejections are visible and justified).
   const options: PlanOption[] = picked.map((c, i) => {
