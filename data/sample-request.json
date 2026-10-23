@@ -1,0 +1,13 @@
+{
+  "team": [
+    { "name": "Lina", "cuisines": ["lebanese", "italian"], "activities": ["escape_room", "museum"], "artists": ["Fairuz"], "dietary": ["vegetarian"] },
+    { "name": "Omar", "cuisines": ["grill", "middle_eastern"], "activities": ["bowling", "go_kart"], "artists": ["Amr Diab"], "dietary": ["halal"] },
+    { "name": "Sara", "cuisines": ["japanese", "italian"], "activities": ["art_gallery", "tourist"], "artists": ["Coldplay"], "dietary": [] },
+    { "name": "Khaled", "cuisines": ["lebanese", "seafood"], "activities": ["bowling", "park"], "artists": [], "dietary": ["halal"] }
+  ],
+  "city": "Amman",
+  "budgetPerPerson": 30,
+  "headcount": 12,
+  "date": "2026-11-12",
+  "language": "en"
+}
