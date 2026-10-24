@@ -46,7 +46,26 @@ Each plan reports, per option, whose picks it matches (dinner and/or activity) a
 mean and minimum satisfaction. Options are labelled **Best fit** (top score), **Fairest** (best minimum, then fewest
 left out) and **Cheapest** (lowest estimated cost per person). If a lower-ranked option is fairer, the UI says why, e.g.
 "Option 2 is fairer than option 1: it also matches Sara, who gets none of their picks in option 1 …". Fairness is
-shown alongside the ranking; it does not change it. Logic: `src/agent/fairness.ts`; tests: `tests/fairness.test.ts`.
+shown alongside the ranking; it does not change it unless the team asks (feedback "not fair to X", below). Logic:
+`src/agent/fairness.ts`; tests: `tests/fairness.test.ts`.
+
+## Agent loop, feedback and replanning
+
+`/api/plan` runs a small agent loop (`src/agent/loop.ts`): understand the constraints → query Qloo → rank → check
+budget and opening hours → propose → explain → approval gate. Each step is written to a decision log (inputs as
+counts, decision, reason, time) returned as `plan.agent.log`. Send `feedback` with the same request to replan:
+
+```json
+{ "...": "the original request", "feedback": [
+  { "type": "budget", "budgetPerPerson": 20 },
+  { "type": "reject_venue", "entityId": "<id from the plan>", "reason": "too far" },
+  { "type": "not_fair", "member": "Sara" } ] }
+```
+
+The replan reuses the Qloo responses it already has, and `plan.agent.checks` says for each item whether it was met
+(an unmet request is reported, not hidden). The agent only proposes: it never books or pays, never sends anything to
+the approvals queue by itself, and every option over the R2 threshold waits for a manager. The response is the same
+Plan as before plus the `agent` field. (A UI for the log and the replan flow is planned; today it is API-only.)
 
 ## Approval policy and audit log
 
@@ -77,7 +96,9 @@ fail a plan.
 ## Errors and honest coverage in the UI
 
 `/api/plan` errors carry a stable `code` that the UI localises: `validation` (400), `unsupported_city` (422, e.g.
-Jeddah), `no_key` (503), `qloo_down` / `qloo_auth` (502, upstream bodies are never echoed), `internal` (500).
+Jeddah), `no_key` (503), `qloo_down` / `qloo_auth` (502, upstream bodies are never echoed), `timeout` (504, over the
+25 s deadline), `rate_limited` (429, 10 plans per minute per IP; approvals 30/min), `too_large` (413), `internal`
+(500). The rate limit is in memory, so on Vercel it applies per server instance.
 The UI shows a loading skeleton, a retry button when Qloo is down, a "no plan fits" card, labels each price as an
 estimate (activities: "typical price, not from Qloo"), shows opening-hours status, and notes when Qloo has no Arabic name.
 Planner notes are translated to Arabic when the pattern is known; anything unrecognised is shown verbatim.
