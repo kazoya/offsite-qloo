@@ -10,7 +10,7 @@ UI (Next.js /[lang]) ──POST──> app/api/plan ──> parsePlanRequest ─
 
 ## Flow (`src/agent/planner.ts`)
 1. **Group profile** (`taste.ts`): each member's cuisines / activities / artists / dietary needs become votes; items wanted by more members rank higher. Unknown picks produce warnings.
-2. **Artists → Qloo entities** (`GET /search`), round-robin across members, max 5 seeds (shared signal budget).
+2. **Artists → Qloo entities** (`GET /search`, top 5 hits), round-robin across members, max 5 seeds (shared signal budget). A hit is used only when its name matches the typed name after normalisation (`names.ts`: case, accents, Arabic letter variants, punctuation); otherwise the artist is skipped with a note naming the closest hit, so a collaboration like "Someone & X" never stands in for "X".
 3. **Dinner**: one `/v2/insights` call, 50 restaurants, union of the team's cuisine tags (plus a broad cuisine pool so Qloo can still rank), `signal.interests.tags` = voted cuisines, `signal.interests.entities` = artist seeds, explainability on.
 4. **Activities**: tags voted by the team; if fewer than 4 venues come back a corporate-friendly fallback set is used and the output says so. Hotels are excluded unless categorised as a spa.
 5. **Scoring** per venue: `0.5 × Qloo affinity (min-max within the candidate set) + 0.25 × member coverage + 0.15 × team fit + 0.1 × rating`.

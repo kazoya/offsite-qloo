@@ -9,6 +9,7 @@ import type { InsightsRequest, InsightsResult, QlooPlace, QlooSearchResult } fro
 import { narrateSafely, RuleBasedProvider, type LLMProvider } from "../llm";
 import { activityCost, defaultApprovalThreshold, dinnerCost } from "./budget";
 import { checkHours, fmtClock as fmt, parseClock, type HoursCheck } from "./hours";
+import { exactNameMatch } from "./names";
 import { AuditLog } from "./policy";
 import { buildGroupProfile, type ArtistSeed, type GroupProfile, type Vote } from "./taste";
 import type { Candidate, Plan, PlanOption, PlanRequest, Reason, ScoreBreakdown } from "./types";
@@ -58,6 +59,8 @@ const MAX_OPTIONS = 3;
  */
 export const DIET_PENALTY_PER_NEED = 0.15;
 const DIET_PENALTY_MAX = 0.3;
+/** How many artist search hits to compare against the typed name. */
+const ARTIST_SEARCH_TAKE = 5;
 /** Evening shape used for the opening-hours check: activity first, then dinner (minutes). */
 export const SCHEDULE = { defaultStart: "18:00", activityMinutes: 120, dinnerMinutes: 90 } as const;
 
@@ -82,9 +85,13 @@ async function resolveArtists(qloo: QlooLike, req: PlanRequest, warnings: string
       if (!name) continue;
       any = true;
       try {
-        const hit = (await qloo.searchEntities({ query: name, types: ["urn:entity:artist"], take: 1 }))[0];
+        // Never trust the top search hit blindly (e.g. "X" can return a collaboration "Y & X" first).
+        const hits = await qloo.searchEntities({ query: name, types: ["urn:entity:artist"], take: ARTIST_SEARCH_TAKE });
+        const hit = exactNameMatch(name, hits);
         if (hit && !seeds.some((s) => s.entityId === hit.entityId)) {
           seeds.push({ entityId: hit.entityId, name: hit.name, member: req.team[i]!.name });
+        } else if (!hit && hits.length > 0) {
+          warnings.push(`Qloo has no exact artist match for "${name}" (closest: "${hits[0]!.name}"); it was skipped.`);
         } else if (!hit) warnings.push(`Qloo found no artist named "${name}".`);
       } catch (e) {
         warnings.push(`Artist lookup for "${name}" failed: ${e instanceof Error ? e.message : "error"}`);

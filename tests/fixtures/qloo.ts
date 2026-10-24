@@ -91,8 +91,14 @@ export class FakeQloo {
     private readonly locality = "Amman, Jordan",
   ) {}
 
-  async searchEntities(o: { query: string }): Promise<QlooSearchResult[]> {
+  /** Optional canned search hits per query (synthetic names), checked before the default artists. */
+  searchHits: Record<string, QlooSearchResult[]> = {};
+  searchTakes: (number | undefined)[] = [];
+
+  async searchEntities(o: { query: string; take?: number }): Promise<QlooSearchResult[]> {
     this.httpCalls++;
+    this.searchTakes.push(o.take);
+    if (this.searchHits[o.query]) return this.searchHits[o.query]!;
     const id = o.query === "Fairuz" ? SEED_FAIRUZ : o.query === "Amr Diab" ? SEED_DIAB : undefined;
     return id ? [{ entityId: id, name: o.query, types: ["urn:entity:artist"], tags: [] }] : [];
   }

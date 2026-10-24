@@ -125,6 +125,7 @@ const WARNING_AR: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^No dinner \+ activity combination fits the budget per person\.$/, () => "لا توجد تركيبة عشاء + نشاط ضمن الميزانية للشخص."],
   [/^Qloo did not report which locality it matched\.$/, () => "لم يحدد Qloo الموقع الذي طابقه."],
   [/^Qloo found no artist named "(.+)"\.$/, (m) => `لم يجد Qloo فنانًا باسم "${m[1]}".`],
+  [/^Qloo has no exact artist match for "(.+)" \(closest: "(.+)"\); it was skipped\.$/, (m) => `لا يوجد في Qloo فنان يطابق "${m[1]}" تمامًا (الأقرب: "${m[2]}")؛ تم تجاهله.`],
   [/^Qloo has no venue-graph data for artist "(.+)" \((.+)'s pick\); it did not influence ranking\.$/, (m) => `لا توجد بيانات أماكن في Qloo للفنان "${m[1]}" (اختيار ${m[2]})؛ لم يؤثر على الترتيب.`],
   [/^Unknown (cuisine|activity|dietary need) "(.+)" from (.+) was ignored\.$/, (m) => `تم تجاهل قيمة غير معروفة "${m[2]}" من ${m[3]}.`],
   [/^LLM provider .+ failed .*; used rule-based narration\.$/, () => "تعذّر مزوّد النموذج اللغوي؛ استخدمنا الصياغة القائمة على القواعد."],
