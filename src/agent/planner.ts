@@ -199,6 +199,49 @@ function scoreCandidates(places: QlooPlace[], ctx: ScoreCtx): Candidate[] {
     });
 }
 
+/** Normalised venue name used to collapse branches of one chain into a single candidate (best-ranked branch wins). */
+export const chainKey = (p: QlooPlace) =>
+  p.nameEn.toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\u0600-\u06ff]+/g, " ").trim();
+
+function dedupeByName(cands: Candidate[]): Candidate[] {
+  const seen = new Set<string>();
+  return cands.filter((c) => {
+    const k = chainKey(c.place) || c.place.entityId;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+interface Combo { d: Candidate; a: Candidate; score: number }
+
+/**
+ * Picks up to `max` combos from a best-first list, relaxing variety constraints step by step:
+ *  1. distinct dinner, distinct activity, distinct activity category
+ *  2. distinct dinner, distinct activity
+ *  3. distinct dinner (an activity may repeat)
+ *  4. any unused combo (only when fewer distinct dinners exist than options)
+ * A dinner is therefore only repeated when no other affordable dinner exists.
+ */
+export function pickDiverse<T extends Combo>(list: T[], max: number): T[] {
+  const picked: T[] = [];
+  const passes: ((c: T) => boolean)[] = [
+    (c) => !usedD(c) && !usedA(c) && !(c.a.categoryKey && picked.some((p) => p.a.categoryKey === c.a.categoryKey)),
+    (c) => !usedD(c) && !usedA(c),
+    (c) => !usedD(c),
+    () => true,
+  ];
+  function usedD(c: T) { return picked.some((p) => p.d.place.entityId === c.d.place.entityId); }
+  function usedA(c: T) { return picked.some((p) => p.a.place.entityId === c.a.place.entityId); }
+  for (const ok of passes) {
+    for (const c of list) {
+      if (picked.length >= max) return picked;
+      if (!picked.includes(c) && ok(c)) picked.push(c);
+    }
+  }
+  return picked;
+}
+
 function humanWarnings(raw: string[], artists: ArtistSeed[]): string[] {
   return raw.map((w) => {
     const hit = artists.find((a) => w.includes(a.entityId));
@@ -287,20 +330,33 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   });
 
   // ---- Combine, apply budget + approval policy ----------------------------------------------------
-  // Dietary safety: when venues with Qloo-confirmed dietary tags exist, venues without confirmation are left out
-  // (a missing tag is not proof either way, so we never present them next to confirmed ones).
-  const confirmedDinners = dinners.filter((d) => d.dietaryUnconfirmed.length === 0);
-  let dinnerPool = dinners;
-  if (needs.length > 0 && confirmedDinners.length >= MIN_DISTINCT_DINNERS && confirmedDinners.length < dinners.length) {
+  // Branches of one chain (same name, different entity ids) count as one venue, so options stay distinct.
+  const dinnersU = dedupeByName(dinners);
+  const activitiesU = dedupeByName(activities);
+  const cheapestActivity = activitiesU.length ? Math.min(...activitiesU.map((a) => a.costPerPerson)) : 0;
+  const affordable = (d: Candidate) => d.costPerPerson + cheapestActivity <= req.budgetPerPerson;
+
+  // Dietary safety: when enough AFFORDABLE venues with Qloo-confirmed dietary tags exist, venues without confirmation
+  // are left out (a missing tag is not proof either way, so we never present them next to confirmed ones). When too few
+  // confirmed venues fit the budget, unconfirmed ones stay in (flagged, ranked after confirmed) so options stay distinct.
+  const confirmedDinners = dinnersU.filter((d) => d.dietaryUnconfirmed.length === 0);
+  let dinnerPool = dinnersU;
+  if (
+    needs.length > 0 &&
+    confirmedDinners.filter(affordable).length >= MIN_DISTINCT_DINNERS &&
+    confirmedDinners.length < dinnersU.length
+  ) {
     dinnerPool = confirmedDinners;
     warnings.push(
-      `${dinners.length - confirmedDinners.length} restaurants were left out because Qloo does not confirm all dietary needs for them.`,
+      `${dinnersU.length - confirmedDinners.length} restaurants were left out because Qloo does not confirm all dietary needs for them.`,
     );
   }
-  const topD = dinnerPool.slice(0, 8);
+  // Shortlist affordable dinners first (so an expensive top-8 cannot crowd out every distinct option), plus the best
+  // unaffordable ones so the audit log shows justified rejections.
+  const topD = [...dinnerPool.filter(affordable).slice(0, 8), ...dinnerPool.filter((d) => !affordable(d)).slice(0, 3)];
   const byConfirmedThenScore = (x: { d: Candidate; score: number }, y: { d: Candidate; score: number }) =>
     Number(x.d.dietaryUnconfirmed.length > 0) - Number(y.d.dietaryUnconfirmed.length > 0) || y.score - x.score;
-  const topA = activities.slice(0, 8);
+  const topA = activitiesU.slice(0, 8);
   const combos = topD
     .flatMap((d) => topA.map((a) => ({ d, a, score: COMBO.dinner * d.score.total + COMBO.activity * a.score.total })))
     .sort(byConfirmedThenScore);
@@ -314,26 +370,12 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   const within = combos.filter((c) => money(c.d, c.a).pp <= req.budgetPerPerson);
   const over = combos.filter((c) => money(c.d, c.a).pp > req.budgetPerPerson);
 
-  // Distinct dinners/activities first; relax if the pool is too small.
-  const picked: typeof combos = [];
-  const usedD = new Set<string>();
-  const usedA = new Set<string>();
-  const usedCat = new Set<string>();
-  for (const strict of [true, false]) {
-    for (const c of within) {
-      if (picked.length >= MAX_OPTIONS) break;
-      if (picked.includes(c)) continue;
-      if (usedD.has(c.d.place.entityId) || usedA.has(c.a.place.entityId)) continue;
-      if (strict && c.a.categoryKey && usedCat.has(c.a.categoryKey)) continue;
-      picked.push(c);
-      usedD.add(c.d.place.entityId);
-      usedA.add(c.a.place.entityId);
-      if (c.a.categoryKey) usedCat.add(c.a.categoryKey);
-    }
-  }
-  for (const c of within) {
-    if (picked.length >= MAX_OPTIONS) break;
-    if (!picked.includes(c) && !picked.some((p) => p.d === c.d && p.a === c.a)) picked.push(c);
+  const picked = pickDiverse(within, MAX_OPTIONS);
+  const distinctDinners = new Set(picked.map((c) => c.d.place.entityId)).size;
+  if (distinctDinners < picked.length) {
+    warnings.push(
+      `Only ${distinctDinners} restaurant${distinctDinners === 1 ? "" : "s"} fit the budget, so some options share a dinner.`,
+    );
   }
 
   // Rank follows the blended score (selection order only decides which combos make the shortlist).
