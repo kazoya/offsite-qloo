@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ERROR_TEXT, money, ruleText, t } from "@/i18n";
+import { ERROR_TEXT, PIN_TEXT, money, ruleText, t, type PinErrorCode } from "@/i18n";
+import type { PinMode } from "@/approvals/pin";
 import { cityProfile } from "@/connectors/qloo/catalog";
 import type { Lang } from "@/agent/types";
 import type { ApprovalData, ApprovalRequest, ApprovalStatus } from "@/approvals/store";
@@ -10,7 +11,7 @@ const FILTERS: (ApprovalStatus | "all")[] = ["pending", "approved", "rejected", 
 const fmtTime = (iso: string, l: Lang) =>
   new Intl.DateTimeFormat(l === "ar" ? "ar-JO-u-nu-latn" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Amman" }).format(new Date(iso));
 
-function Row({ r, l, onDone }: { r: ApprovalRequest; l: Lang; onDone: () => void }) {
+function Row({ r, l, onDone, mode, pin }: { r: ApprovalRequest; l: Lang; onDone: () => void; mode: PinMode; pin: string }) {
   const [actor, setActor] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,11 +24,11 @@ function Row({ r, l, onDone }: { r: ApprovalRequest; l: Lang; onDone: () => void
     try {
       const res = await fetch(`/api/approvals/${encodeURIComponent(r.id)}`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/json", ...(pin ? { "x-approvals-pin": pin } : {}) },
         body: JSON.stringify({ action, actor, note }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) setErr(json.error ?? String(res.status));
+      if (!res.ok) setErr(json.code && json.code in PIN_TEXT ? PIN_TEXT[json.code as PinErrorCode][l] : (json.error ?? String(res.status)));
       else onDone();
     } catch {
       setErr(ERROR_TEXT.network[l]);
@@ -57,7 +58,7 @@ function Row({ r, l, onDone }: { r: ApprovalRequest; l: Lang; onDone: () => void
         )}
       </p>
       {r.note && <p>“<bdi>{r.note}</bdi>”</p>}
-      {r.status === "pending" && (
+      {r.status === "pending" && mode !== "disabled" && (
         <div className="decide">
           <div>
             <label htmlFor={`who-${r.id}`}>{t("approver", l)}</label>
@@ -68,8 +69,8 @@ function Row({ r, l, onDone }: { r: ApprovalRequest; l: Lang; onDone: () => void
             <input id={`note-${r.id}`} value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
           </div>
           <div className="row">
-            <button type="button" className="primary" disabled={busy || !actor.trim()} onClick={() => decide("approve")}>{t("approve", l)}</button>
-            <button type="button" className="danger" disabled={busy || !actor.trim() || !note.trim()} onClick={() => decide("reject")}>{t("reject", l)}</button>
+            <button type="button" className="primary" disabled={busy || !actor.trim() || (mode === "pin" && !pin.trim())} onClick={() => decide("approve")}>{t("approve", l)}</button>
+            <button type="button" className="danger" disabled={busy || !actor.trim() || !note.trim() || (mode === "pin" && !pin.trim())} onClick={() => decide("reject")}>{t("reject", l)}</button>
           </div>
           {err && <p className="err" role="alert">{err}</p>}
         </div>
@@ -78,7 +79,8 @@ function Row({ r, l, onDone }: { r: ApprovalRequest; l: Lang; onDone: () => void
   );
 }
 
-export function Approvals({ lang: l }: { lang: Lang }) {
+export function Approvals({ lang: l, mode }: { lang: Lang; mode: PinMode }) {
+  const [pin, setPin] = useState("");
   const [filter, setFilter] = useState<ApprovalStatus | "all">("pending");
   const [data, setData] = useState<ApprovalData | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -107,12 +109,20 @@ export function Approvals({ lang: l }: { lang: Lang }) {
           </button>
         ))}
       </div>
+      {mode === "disabled" && <div className="notice" role="status">{PIN_TEXT.approvals_disabled[l]}</div>}
+      {mode === "pin" && (
+        <div className="card pinbox">
+          <label htmlFor="approvals-pin">{t("pin", l)}</label>
+          <input id="approvals-pin" type="password" inputMode="numeric" autoComplete="off" dir="ltr" maxLength={12} value={pin} onChange={(e) => setPin(e.target.value)} />
+          <p className="muted">{t("pinHint", l)}</p>
+        </div>
+      )}
       {err && <div className="card errcard" role="alert"><p>{err}</p></div>}
       {!data && !err && <p className="muted loading"><span className="spinner" aria-hidden="true" /> {t("loading", l)}</p>}
       {data && data.requests.length === 0 && (
         <div className="card empty" role="status"><p className="muted">{t("noApprovals", l)}</p></div>
       )}
-      {data?.requests.map((r) => <Row key={r.id} r={r} l={l} onDone={load} />)}
+      {data?.requests.map((r) => <Row key={r.id} r={r} l={l} onDone={load} mode={mode} pin={pin} />)}
       {data && data.audit.length > 0 && (
         <div className="card">
           <h2>{t("approvalAudit", l)}</h2>

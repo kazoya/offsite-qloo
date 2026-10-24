@@ -9,3 +9,5 @@ data/private/
 tsconfig.tsbuildinfo
 next-env.d.ts
 coverage/
+.demo-pin.txt
+.vercel

@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+.cache
+data/private
+.demo-pin.txt
+node_modules
+.next
+coverage
+*.log

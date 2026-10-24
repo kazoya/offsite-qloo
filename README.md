@@ -54,7 +54,15 @@ server, and only R2 plans are accepted. Every submit/approve/reject is appended 
 (rules M1/M2). Storage is a local JSON file, `data/private/approvals.json` (gitignored); override with
 `APPROVALS_FILE=/path.json`, or `APPROVALS_FILE=memory` for RAM only. API: `GET /api/approvals?status=pending`,
 `POST /api/approvals`, `POST /api/approvals/:id` with `{action:"approve"|"reject", actor, note}`.
-This is a single-process demo store with **no authentication**: anyone who can reach the server can approve.
+**Demo PIN guard:** approve/reject require the manager PIN from `APPROVALS_PIN` (checked on the server, sent as the
+`x-approvals-pin` header; 5 wrong tries lock a client for 10 minutes). If `APPROVALS_PIN` is unset in production,
+approve/reject are disabled and the page says so in both languages; in development they stay open. Viewing the queue
+needs no PIN. This is a shared demo PIN, not real user accounts or roles.
+
+**On Vercel** the filesystem is read-only, so the queue uses `APPROVALS_FILE=memory` (the default when `VERCEL` is set)
+and **resets whenever the serverless instance restarts or scales**: a request sent to the manager can disappear, and two
+instances may show different queues. Set `QLOO_CACHE_DIR=/tmp/qloo-cache` there; cache writes are best effort and never
+fail a plan.
 
 ## Errors and honest coverage in the UI
 

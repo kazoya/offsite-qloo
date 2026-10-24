@@ -229,10 +229,10 @@ export class ApprovalStore {
 }
 
 let shared: ApprovalStore | undefined;
-/** Process-wide store for the API routes. APPROVALS_FILE overrides the path; APPROVALS_FILE=memory keeps it in RAM. */
+/** Process-wide store for the API routes. APPROVALS_FILE overrides the path; APPROVALS_FILE=memory keeps it in RAM (default on Vercel, where the filesystem is read-only; resets on cold start). */
 export function approvalStore(): ApprovalStore {
   if (!shared) {
-    const f = process.env.APPROVALS_FILE ?? "data/private/approvals.json";
+    const f = process.env.APPROVALS_FILE ?? (process.env.VERCEL ? "memory" : "data/private/approvals.json");
     shared = new ApprovalStore(f === "memory" ? new MemoryPersistence() : new JsonFilePersistence(f));
   }
   return shared;

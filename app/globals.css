@@ -70,3 +70,4 @@ button:disabled { opacity:.55; cursor:not-allowed; }
 a { color:var(--accent); }
 ul.venues { list-style:none; padding:0; margin:8px 0; display:grid; gap:4px; } ul.venues .kind { display:inline-block; min-width:64px; }
 .chip { font-family:inherit; }
+.pinbox { display:grid; gap:.35rem; max-width:22rem; } .pinbox input { font-family:inherit; }

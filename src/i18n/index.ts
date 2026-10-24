@@ -76,6 +76,8 @@ export const UI = {
   reject: { en: "Reject", ar: "رفض" },
   approver: { en: "Your name (approver)", ar: "اسمك (المعتمِد)" },
   note: { en: "Note (required to reject)", ar: "ملاحظة (مطلوبة عند الرفض)" },
+  pin: { en: "Manager PIN", ar: "رمز المدير (PIN)" },
+  pinHint: { en: "Approving or rejecting needs the demo manager PIN.", ar: "الموافقة أو الرفض تحتاج رمز المدير التجريبي." },
   noApprovals: { en: "Nothing here yet. Send an option that needs approval from the planner.", ar: "لا شيء هنا بعد. أرسل خيارًا يحتاج موافقة من المخطط." },
   thresholdLabel: { en: "threshold", ar: "الحد" },
   requestedBy: { en: "requested by", ar: "طلبها" },
@@ -88,6 +90,17 @@ export const UI = {
 export type ErrorCode = "bad_json" | "validation" | "unsupported_city" | "no_key" | "qloo_down" | "qloo_auth" | "internal" | "network";
 
 /** Localised, honest error copy keyed by the API error code. */
+export type PinErrorCode = "pin_required" | "pin_invalid" | "approvals_disabled" | "pin_locked";
+export const PIN_TEXT: Record<PinErrorCode, Record<Lang, string>> = {
+  pin_required: { en: "Enter the manager PIN to approve or reject.", ar: "أدخل رمز المدير للموافقة أو الرفض." },
+  pin_invalid: { en: "That PIN is not correct.", ar: "رمز PIN غير صحيح." },
+  pin_locked: { en: "Too many wrong PINs. Try again in 10 minutes.", ar: "محاولات خاطئة كثيرة. حاول بعد 10 دقائق." },
+  approvals_disabled: {
+    en: "Approving and rejecting are turned off on this server because no manager PIN is configured. You can still view the queue.",
+    ar: "الموافقة والرفض معطّلان على هذا الخادم لأنه لم يُضبط رمز للمدير. ما زال بإمكانك عرض القائمة.",
+  },
+};
+
 export const ERROR_TEXT: Record<ErrorCode, Record<Lang, string>> = {
   bad_json: { en: "The request could not be read.", ar: "تعذّرت قراءة الطلب." },
   validation: { en: "Please check the form", ar: "يرجى مراجعة النموذج" },

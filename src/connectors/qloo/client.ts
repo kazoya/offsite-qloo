@@ -72,7 +72,7 @@ export class QlooClient {
     const apiKey = env.QLOO_API_KEY;
     if (!apiKey) throw new QlooError("QLOO_API_KEY is not set (see .env.example)");
     const mode = (env.QLOO_CACHE as CacheMode | undefined) ?? "on";
-    return new QlooClient({ apiKey, baseUrl: env.QLOO_BASE_URL, cacheMode: mode });
+    return new QlooClient({ apiKey, baseUrl: env.QLOO_BASE_URL, cacheMode: mode, cacheDir: env.QLOO_CACHE_DIR || undefined });
   }
 
   private redact(text: string): string {

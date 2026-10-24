@@ -38,7 +38,11 @@ export class ResponseCache {
 
   async set(key: string, value: unknown): Promise<void> {
     if (this.mode !== "on") return;
-    await fs.mkdir(this.dir, { recursive: true });
-    await fs.writeFile(this.file(key), JSON.stringify(value));
+    try {
+      await fs.mkdir(this.dir, { recursive: true });
+      await fs.writeFile(this.file(key), JSON.stringify(value));
+    } catch {
+      // Best effort: a read-only filesystem (e.g. serverless) must not fail the plan.
+    }
   }
 }
