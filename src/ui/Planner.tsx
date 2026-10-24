@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { DECISION_LABEL, ERROR_TEXT, money, renderReason, ruleText, t, warningText, WEEKDAY_LABEL, type ErrorCode } from "@/i18n";
+import { alwaysLeftOutText, coverageLine, DECISION_LABEL, ERROR_TEXT, FAIRNESS_LABEL, fairnessExplanationText, money, renderReason, ruleText, t, warningText, WEEKDAY_LABEL, type ErrorCode } from "@/i18n";
 import type { Candidate, Lang, Plan, PlanOption } from "@/agent/types";
 import { WEEKDAYS } from "@/agent/hours";
 
@@ -314,18 +314,31 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
             </div>
           )}
 
+          {plan.fairness && (plan.fairness.explanation || plan.fairness.alwaysLeftOut.length > 0) && (
+            <div className="card fairness" role="note">
+              <h2>{t("fairnessTitle", l)}</h2>
+              {plan.fairness.explanation && <p>{fairnessExplanationText(plan.fairness.explanation, plan.currency, l)}</p>}
+              {plan.fairness.alwaysLeftOut.length > 0 && <p className="muted">{alwaysLeftOutText(plan.fairness.alwaysLeftOut, l)}</p>}
+            </div>
+          )}
+
           {plan.options.map((o) => {
             const s = sends[o.rank];
+            const f = plan.fairness?.options.find((x) => x.rank === o.rank);
             return (
               <article className={`card opt ${o.decision}`} key={o.rank}>
                 <div className="opthead">
                   <h2>{t("option", l)} {o.rank}</h2>
                   <span className={`badge ${o.decision}`}>{DECISION_LABEL[o.decision][l]}</span>
+                  {f?.labels.map((lb) => (
+                    <span className={`tag fair ${lb}`} key={lb}>{FAIRNESS_LABEL[lb][l]}</span>
+                  ))}
                   <span className="muted cost">
                     ~{money(o.costPerPerson, plan.currency, l)} {t("perPerson", l)} · ~{money(o.costTotal, plan.currency, l)} {t("total", l)} · {t("score", l)} {o.score.toFixed(2)}
                   </span>
                 </div>
                 {o.summary && <p>{o.summary}</p>}
+                {f && <p className="muted coverage">{coverageLine(f, l)}</p>}
                 <div className="pair">
                   <CandidateView c={o.activity} plan={plan} l={l} />
                   <CandidateView c={o.dinner} plan={plan} l={l} />

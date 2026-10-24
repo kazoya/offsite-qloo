@@ -9,6 +9,7 @@ import type { InsightsRequest, InsightsResult, QlooPlace, QlooSearchResult } fro
 import { narrateSafely, RuleBasedProvider, type LLMProvider } from "../llm";
 import { activityCost, defaultApprovalThreshold, dinnerCost } from "./budget";
 import { checkHours, fmtClock as fmt, parseClock, type HoursCheck } from "./hours";
+import { assessFairness } from "./fairness";
 import { exactNameMatch } from "./names";
 import { AuditLog } from "./policy";
 import { buildGroupProfile, type ArtistSeed, type GroupProfile, type Vote } from "./taste";
@@ -205,6 +206,7 @@ function scoreCandidates(places: QlooPlace[], ctx: ScoreCtx): Candidate[] {
         costIsAssumed: cost.assumed,
         dietaryConfirmed: confirmed,
         dietaryUnconfirmed: unconfirmed,
+        membersCovered: ctx.memberNames.filter((m) => covered.has(m)),
         score,
         reasons,
       };
@@ -493,6 +495,7 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
       activity: { from: fmt(startMin), to: fmt(startMin + SCHEDULE.activityMinutes) },
       dinner: { from: fmt(dinnerStart), to: fmt(dinnerStart + SCHEDULE.dinnerMinutes) },
     },
+    fairness: assessFairness(options, memberNames),
   };
 
   const n = await narrateSafely(deps.llm ?? new RuleBasedProvider(), plan, req.language);

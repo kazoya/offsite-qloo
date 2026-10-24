@@ -71,3 +71,5 @@ a { color:var(--accent); }
 ul.venues { list-style:none; padding:0; margin:8px 0; display:grid; gap:4px; } ul.venues .kind { display:inline-block; min-width:64px; }
 .chip { font-family:inherit; }
 .pinbox { display:grid; gap:.35rem; max-width:22rem; } .pinbox input { font-family:inherit; }
+.tag.fair { color:var(--accent); border-color:#1f5a43; font-weight:600; } .tag.fair.fairest { color:#7cc4ff; border-color:#1f3f5a; }
+.card.fairness { border-inline-start:3px solid #7cc4ff; }

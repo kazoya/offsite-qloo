@@ -1,3 +1,4 @@
+import type { FairnessReport } from "./fairness";
 import type { QlooPlace } from "../connectors/qloo/types";
 import type { HoursCheck } from "./hours";
 
@@ -82,6 +83,8 @@ export interface Candidate {
   costIsAssumed: boolean;
   dietaryConfirmed: string[];
   dietaryUnconfirmed: string[];
+  /** Team members whose picks this venue matches (cuisine/activity tags or a Qloo-attributed artist), in team order. */
+  membersCovered: string[];
   score: ScoreBreakdown;
   reasons: Reason[];
   /** Opening-hours check for this venue's slot in the evening (Qloo hours). */
@@ -125,4 +128,6 @@ export interface Plan {
   /** Evening schedule the hours check used (local time in the city). */
   schedule?: { weekday: string; activity: { from: string; to: string }; dinner: { from: string; to: string } };
   overview?: string;
+  /** Per-member coverage across the shortlist and the Best fit / Fairest / Cheapest labels (absent with no options). */
+  fairness?: FairnessReport;
 }

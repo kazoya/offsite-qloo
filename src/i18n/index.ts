@@ -1,4 +1,5 @@
 import type { Lang, Reason, Decision } from "../agent/types";
+import type { FairnessExplanation, FairnessLabel, OptionFairness } from "../agent/fairness";
 
 export const dir = (l: Lang) => (l === "ar" ? "rtl" : "ltr");
 
@@ -50,6 +51,7 @@ export const UI = {
   hoursOpen: { en: "Open at this time", ar: "مفتوح في هذا الوقت" },
   hoursUnknown: { en: "Hours unknown", ar: "ساعات العمل غير معروفة" },
   dietUnconfirmed: { en: "Diet unconfirmed", ar: "النظام الغذائي غير مؤكد" },
+  fairnessTitle: { en: "Team fairness", ar: "عدالة الاختيار للفريق" },
   noArName: { en: "No Arabic name in Qloo; showing the English name", ar: "لا يوجد اسم عربي في Qloo؛ نعرض الاسم الإنجليزي" },
   noOptionsTitle: { en: "No plan fits yet", ar: "لا توجد خطة مناسبة بعد" },
   noOptionsHint: {
@@ -235,3 +237,50 @@ export const RULE_LABEL: Record<string, Record<Lang, string>> = {
   M2: { en: "Manager rejected spend above the threshold", ar: "رفض المدير إنفاقًا فوق الحد" },
 };
 export const ruleText = (rule: string, l: Lang) => RULE_LABEL[rule.slice(0, 2)]?.[l] ?? rule;
+
+export const FAIRNESS_LABEL: Record<FairnessLabel, Record<Lang, string>> = {
+  best_fit: { en: "Best fit", ar: "الأنسب" },
+  fairest: { en: "Fairest", ar: "الأعدل" },
+  cheapest: { en: "Cheapest", ar: "الأرخص" },
+};
+
+/** One line per option: whose picks it matches and who it leaves out. */
+export function coverageLine(f: OptionFairness, l: Lang): string {
+  const hit = f.members.filter((m) => m.score > 0).map((m) => m.name);
+  const n = f.members.length;
+  const base =
+    l === "ar"
+      ? `يطابق اختيارات ${hit.length} من ${n}${hit.length ? `: ${list(hit, l)}` : ""}`
+      : `Matches the picks of ${hit.length} of ${n}${hit.length ? `: ${list(hit, l)}` : ""}`;
+  if (!f.leftOut.length) return base;
+  return l === "ar" ? `${base} · لا شيء من اختيارات: ${list(f.leftOut, l)}` : `${base} · Nothing picked by: ${list(f.leftOut, l)}`;
+}
+
+/** Why a lower-ranked option is the fairer one (costs are estimates). */
+export function fairnessExplanationText(e: FairnessExplanation, currency: string, l: Lang): string {
+  const d = e.costDeltaPerPerson;
+  const cost =
+    Math.abs(d) < 0.005
+      ? l === "ar" ? "بنفس التكلفة التقديرية للشخص" : "at the same estimated cost per person"
+      : l === "ar"
+        ? `بتكلفة تقديرية ${d > 0 ? "أعلى" : "أقل"} بنحو ${money(Math.abs(d), currency, l)} للشخص`
+        : `for about ${money(Math.abs(d), currency, l)} ${d > 0 ? "more" : "less"} per person (estimate)`;
+  if (l === "ar") {
+    const gains = e.gains.length
+      ? `يشمل أيضًا ${list(e.gains, l)} ممن لا يطابق الخيار ${e.bestRank} أي شيء من اختياراتهم، `
+      : "يوزّع اختيارات الفريق بشكل أعدل، ";
+    const losses = e.losses.length ? ` لكنه لا يطابق اختيارات ${list(e.losses, l)}.` : "";
+    return `الخيار ${e.fairerRank} أعدل من الخيار ${e.bestRank}: ${gains}${cost}، ودرجته أقل بـ ${e.scoreGap.toFixed(2)}.${losses}`;
+  }
+  const gains = e.gains.length
+    ? `it also matches ${list(e.gains, l)}, who get${e.gains.length === 1 ? "s" : ""} none of their picks in option ${e.bestRank}, `
+    : "it spreads the team's picks more evenly, ";
+  const losses = e.losses.length ? ` It does leave out ${list(e.losses, l)}.` : "";
+  return `Option ${e.fairerRank} is fairer than option ${e.bestRank}: ${gains}${cost}, with a ${e.scoreGap.toFixed(2)} lower score.${losses}`;
+}
+
+export function alwaysLeftOutText(names: string[], l: Lang): string {
+  return l === "ar"
+    ? `لا يطابق أي خيار اختيارات: ${list(names, l)}. جرّب إضافة مطبخ أو نشاط آخر لهم.`
+    : `No option matches the picks of: ${list(names, l)}. Try adding another cuisine or activity for them.`;
+}

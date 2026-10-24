@@ -40,6 +40,14 @@ Optional LLM narration: set `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` (any Open
 endpoint). Without them a deterministic rule-based narrator is used; the plan itself never depends on an LLM.
 If the LLM call fails the app falls back to the rule-based text and adds a warning.
 
+## Team fairness
+
+Each plan reports, per option, whose picks it matches (dinner and/or activity) and who it leaves out, plus team
+mean and minimum satisfaction. Options are labelled **Best fit** (top score), **Fairest** (best minimum, then fewest
+left out) and **Cheapest** (lowest estimated cost per person). If a lower-ranked option is fairer, the UI says why, e.g.
+"Option 2 is fairer than option 1: it also matches Sara, who gets none of their picks in option 1 …". Fairness is
+shown alongside the ranking; it does not change it. Logic: `src/agent/fairness.ts`; tests: `tests/fairness.test.ts`.
+
 ## Approval policy and audit log
 
 * R1 — per-person cost above the budget → rejected.
