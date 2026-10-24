@@ -5,5 +5,5 @@ export { Deadline, DeadlineError } from "./deadline";
 export { buildGroupProfile } from "./taste";
 export { evaluatePolicy, AuditLog } from "./policy";
 export { dinnerCost, activityCost, defaultApprovalThreshold } from "./budget";
-export { diffPlans, type PlanDiff, type OptionChange, type OptionSide, type ChangeStatus } from "./diff";
+export { diffPlans, diffViews, type DiffViews, type PlanDiff, type OptionChange, type OptionSide, type ChangeStatus } from "./diff";
 export { assessFairness, optionFairness, type FairnessReport, type FairnessLabel, type OptionFairness, type FairnessExplanation } from "./fairness";

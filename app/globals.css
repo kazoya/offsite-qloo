@@ -110,3 +110,4 @@ button.primary.demo { background:#7cc4ff; border-color:#7cc4ff; color:#06131f; }
   .declog dl { grid-template-columns:1fr; } .fbgrid .row > button { white-space:nowrap; }
   .diff td, .diff th { font-size:.78rem; }
 }
+.diff .seg { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }

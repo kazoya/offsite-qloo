@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { money } from "@/i18n";
 import { CHANGE_LABEL, d, STEP_LABEL } from "@/i18n/demo";
+import { checkText, logText } from "@/i18n/decisionLog";
 import type { Candidate, Feedback, Lang } from "@/agent/types";
 import type { OptionFairness } from "@/agent/fairness";
 import type { AgentReport } from "@/agent/loop";
@@ -162,10 +163,34 @@ function SideCell({ s, l, currency }: { s?: OptionSide; l: Lang; currency: strin
 const signed = (n: number, fmt: (x: number) => string) => (Math.abs(n) < 1e-9 ? "±0" : `${n > 0 ? "+" : "−"}${fmt(Math.abs(n))}`);
 
 /** Old vs new per option: venues, cost per person and fairness. */
-export function DiffView({ diff, l, currency, qloo }: { diff: PlanDiff; l: Lang; currency: string; qloo?: AgentReport["qloo"] }) {
+export function DiffView({
+  diff,
+  l,
+  currency,
+  qloo,
+  base,
+  onBase,
+}: {
+  diff: PlanDiff;
+  l: Lang;
+  currency: string;
+  qloo?: AgentReport["qloo"];
+  /** Set when both views exist (two or more replans): which plan the table compares against. */
+  base?: "previous" | "original";
+  onBase?: (b: "previous" | "original") => void;
+}) {
   return (
     <div className="card diff" aria-live="polite">
       <h2>{d("whatChanged", l)}</h2>
+      {base && onBase && (
+        <div className="seg" role="group" aria-label={d("whatChanged", l)}>
+          {(["previous", "original"] as const).map((b) => (
+            <button key={b} type="button" className="chip" aria-pressed={base === b} onClick={() => onBase(b)}>
+              {d(b === "previous" ? "vsPrevious" : "vsOriginal", l)}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="muted">
         {d("budgetLine", l)}: {money(diff.budgetBefore, currency, l)} → {money(diff.budgetAfter, currency, l)}
         {qloo && (
@@ -233,35 +258,38 @@ export function DecisionLog({ agent, l }: { agent: AgentReport; l: Lang }) {
     <div className="card declog">
       <h2>{d("log", l)}</h2>
       <p className="muted">
-        {d("logNote", l)} {d("logLangNote", l)} · {agent.elapsedMs} ms · {d("qlooCalls", l)}: {agent.qloo.httpCalls}
+        {d("logNote", l)} · {agent.elapsedMs} ms · {d("qlooCalls", l)}: {agent.qloo.httpCalls}
       </p>
       {agent.checks.length > 0 && (
         <ul className="checks">
           {agent.checks.map((c, i) => (
             <li key={i} className={c.satisfied ? "oktext" : "warntext"}>
-              <b>{c.satisfied ? `✓ ${d("met", l)}` : `✗ ${d("notMet", l)}`}</b> <span dir="ltr">{c.detail}</span>
+              <b>{c.satisfied ? `✓ ${d("met", l)}` : `✗ ${d("notMet", l)}`}</b> <bdi>{checkText(c, l)}</bdi>
             </li>
           ))}
         </ul>
       )}
-      {agent.log.map((e) => (
+      {agent.log.map((e) => {
+        const txt = logText(e, l, agent.feedback);
+        return (
         <details key={e.seq} className="logstep">
           <summary>
             <span className="n">{e.seq}</span> {STEP_LABEL[e.step]?.[l] ?? e.step}{" "}
             <span className={`tag ${e.pass === "replan" ? "warn" : ""}`}>{d(e.pass, l)}</span> <span className="muted" dir="ltr">{e.ms} ms</span>
           </summary>
-          <dl dir="ltr">
+          <dl>
             <dt>{d("decision", l)}</dt>
-            <dd>{e.decision}</dd>
+            <dd>{txt.decision}</dd>
             <dt>{d("reason", l)}</dt>
-            <dd>{e.reason}</dd>
+            <dd>{txt.reason}</dd>
             <dt>{d("inputs", l)}</dt>
-            <dd>
+            <dd dir="ltr">
               <code>{JSON.stringify(e.inputs)}</code>
             </dd>
           </dl>
         </details>
-      ))}
+        );
+      })}
     </div>
   );
 }

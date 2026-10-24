@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffPlans, runAgent, type PlanRequest } from "../src/agent";
+import { diffPlans, diffViews, runAgent, type PlanRequest } from "../src/agent";
 import { DEMO_COMPANY } from "../src/demo/company";
 import { FakeQloo } from "./fixtures/qloo";
 
@@ -70,5 +70,27 @@ describe("demo company", () => {
       m.dietary.forEach((k) => expect(dt.has(k)).toBe(true));
     }
     expect(new Set(DEMO_COMPANY.members.flatMap((m) => m.cuisines)).size).toBeGreaterThanOrEqual(10);
+  });
+});
+
+describe("diffViews", () => {
+  const p0 = mk(40, [opt(1, "D1", "A1", 30)], [fair(1, 0.5, 0, ["C"])]);
+  const p1 = mk(30, [opt(1, "D2", "A1", 25)], [fair(1, 0.5, 0.5, [])]);
+  const p2 = mk(20, [opt(1, "D3", "A1", 18)], [fair(1, 0.6, 0.5, [])]);
+  it("has no diff before any replan", () => {
+    expect(diffViews(p0, null, p0)).toEqual({});
+  });
+  it("after one replan only the previous view exists (it is the original)", () => {
+    const v = diffViews(p0, p0, p1);
+    expect(v.vsOriginal).toBeUndefined();
+    expect(v.vsPrevious!.options[0]!.before!.dinner.id).toBe("D1");
+  });
+  it("after two replans compares against both the previous and the original plan", () => {
+    const v = diffViews(p0, p1, p2);
+    expect(v.vsPrevious!.options[0]!.before!.dinner.id).toBe("D2");
+    expect(v.vsOriginal!.options[0]!.before!.dinner.id).toBe("D1");
+    expect([v.vsOriginal!.budgetBefore, v.vsOriginal!.budgetAfter]).toEqual([40, 20]);
+    expect(v.vsOriginal!.options[0]!.leftOutRemoved).toEqual(["C"]);
+    expect(v.vsPrevious!.options[0]!.leftOutRemoved).toEqual([]);
   });
 });

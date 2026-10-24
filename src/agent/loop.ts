@@ -43,10 +43,25 @@ export interface GateEntry {
   corrected: boolean;
 }
 
+/** Which template produced a check's detail (lets the UI render it in Arabic from the same facts). */
+export type CheckCode =
+  | "budget_no_option"
+  | "budget"
+  | "venue_gone"
+  | "venue_still"
+  | "pair_gone"
+  | "pair_still"
+  | "member_top"
+  | "member_lower"
+  | "member_none";
+
 export interface FeedbackCheck {
   feedback: Feedback;
   satisfied: boolean;
+  /** English text (the API's default). */
   detail: string;
+  code: CheckCode;
+  values?: { before?: number; now?: number; over?: number; still?: number };
 }
 
 export interface OptionDigest {
@@ -307,18 +322,28 @@ export async function runAgent(req: PlanRequest, feedback: Feedback[], deps: Age
         const before = baseline.length ? Math.min(...baseline.map((o) => o.costPerPerson)) : 0;
         const now = after.length ? Math.min(...after.map((o) => o.costPerPerson)) : 0;
         return plan.options.length === 0
-          ? { feedback: f, satisfied: false, detail: `No option fits ${f.budgetPerPerson} per person.` }
-          : { feedback: f, satisfied: over === 0, detail: `Cheapest option ${r2(before)} → ${r2(now)} per person; ${over} option(s) over the new budget.` };
+          ? { feedback: f, satisfied: false, code: "budget_no_option", detail: `No option fits ${f.budgetPerPerson} per person.` }
+          : {
+              feedback: f,
+              satisfied: over === 0,
+              code: "budget",
+              values: { before: r2(before), now: r2(now), over },
+              detail: `Cheapest option ${r2(before)} → ${r2(now)} per person; ${over} option(s) over the new budget.`,
+            };
       }
       if (f.type === "reject_venue") {
         const still = plan.options.filter((o) =>
           [o.dinner, o.activity].some((c) => c.place.entityId === f.entityId || (chainKey(c.place) && rejectedChains.has(chainKey(c.place)))),
         ).length;
-        return { feedback: f, satisfied: still === 0, detail: still === 0 ? "The rejected venue is no longer in any option." : `Still in ${still} option(s).` };
+        return still === 0
+          ? { feedback: f, satisfied: true, code: "venue_gone", detail: "The rejected venue is no longer in any option." }
+          : { feedback: f, satisfied: false, code: "venue_still", values: { still }, detail: `Still in ${still} option(s).` };
       }
       if (f.type === "manager_reject") {
         const still = plan.options.filter((o) => o.dinner.place.entityId === f.dinnerId && o.activity.place.entityId === f.activityId).length;
-        return { feedback: f, satisfied: still === 0, detail: still === 0 ? "The rejected pairing is not proposed again." : "The rejected pairing is still proposed." };
+        return still === 0
+          ? { feedback: f, satisfied: true, code: "pair_gone", detail: "The rejected pairing is not proposed again." }
+          : { feedback: f, satisfied: false, code: "pair_still", values: { still }, detail: "The rejected pairing is still proposed." };
       }
       const top = plan.fairness?.options[0]?.members.find((m) => m.name === f.member);
       const covered = (top?.score ?? 0) > 0;
@@ -326,6 +351,7 @@ export async function runAgent(req: PlanRequest, feedback: Feedback[], deps: Age
       return {
         feedback: f,
         satisfied: covered,
+        code: covered ? "member_top" : anyCovered ? "member_lower" : "member_none",
         detail: covered
           ? `Option 1 now includes something ${f.member} picked.`
           : anyCovered

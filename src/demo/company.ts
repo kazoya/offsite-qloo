@@ -1,8 +1,9 @@
 /**
  * "Load demo company": a synthetic 12-person team for the judge demo. The member names and tastes are invented
  * (no real employees); the artists are public names used only as taste seeds for Qloo.
- * Tastes are deliberately spread so the fairness meter has something to show: a Lebanese/grill majority,
- * smaller Japanese, Indian and Italian camps, and a few members whose picks the city may not cover at all.
+ * Tastes form realistic overlapping clusters (a Levantine/grill group, a cafe/Italian/sushi group, a burgers/grill
+ * group; culture fans and bowling/escape-room fans), so most members can be covered while options still differ.
+ * Nothing here fixes the outcome: the options, coverage and lowest-member scores are computed live from Qloo.
  */
 export interface DemoMember {
   name: string;
@@ -23,16 +24,16 @@ export const DEMO_COMPANY = {
   startTime: "18:00",
   members: [
     { name: "Rana", cuisines: ["lebanese", "mediterranean"], activities: ["museum", "art_gallery"], artists: "Fairuz", dietary: ["vegetarian"] },
-    { name: "Tariq", cuisines: ["grill", "middle_eastern"], activities: ["bowling"], artists: "عمرو دياب", dietary: ["halal"] },
-    { name: "Maya", cuisines: ["japanese", "sushi"], activities: ["escape_room"], artists: "", dietary: [] },
-    { name: "Jad", cuisines: ["lebanese", "grill"], activities: ["go_kart", "bowling"], artists: "", dietary: ["halal"] },
-    { name: "Dana", cuisines: ["italian", "pizza"], activities: ["karaoke"], artists: "", dietary: ["gluten_free"] },
-    { name: "Karim", cuisines: ["indian"], activities: ["hiking", "park"], artists: "", dietary: ["vegetarian"] },
-    { name: "Nour", cuisines: ["middle_eastern", "turkish"], activities: ["art_gallery", "historical"], artists: "Fairuz", dietary: ["halal"] },
-    { name: "Hadi", cuisines: ["hamburger", "american"], activities: ["amusement", "go_kart"], artists: "", dietary: [] },
-    { name: "Leen", cuisines: ["japanese", "korean"], activities: ["escape_room", "karaoke"], artists: "", dietary: [] },
-    { name: "Omar", cuisines: ["grill", "steak_house"], activities: ["bowling", "sports"], artists: "", dietary: ["halal"] },
-    { name: "Sama", cuisines: ["italian", "cafe"], activities: ["museum", "tourist"], artists: "", dietary: [] },
-    { name: "Yazan", cuisines: ["seafood", "mediterranean"], activities: ["live_music"], artists: "", dietary: [] },
+    { name: "Tariq", cuisines: ["middle_eastern", "grill"], activities: ["bowling", "tourist"], artists: "عمرو دياب", dietary: ["halal"] },
+    { name: "Maya", cuisines: ["sushi", "cafe"], activities: ["escape_room", "art_gallery"], artists: "", dietary: [] },
+    { name: "Jad", cuisines: ["lebanese", "grill", "middle_eastern"], activities: ["bowling", "go_kart"], artists: "", dietary: ["halal"] },
+    { name: "Dana", cuisines: ["italian", "pizza", "cafe"], activities: ["museum", "art_gallery"], artists: "", dietary: ["gluten_free"] },
+    { name: "Karim", cuisines: ["middle_eastern", "cafe"], activities: ["tourist", "historical"], artists: "", dietary: ["vegetarian"] },
+    { name: "Nour", cuisines: ["lebanese", "middle_eastern"], activities: ["art_gallery", "historical"], artists: "Fairuz", dietary: ["halal"] },
+    { name: "Hadi", cuisines: ["hamburger", "grill", "american"], activities: ["bowling", "tourist"], artists: "", dietary: [] },
+    { name: "Leen", cuisines: ["sushi", "cafe"], activities: ["escape_room", "art_gallery"], artists: "", dietary: [] },
+    { name: "Omar", cuisines: ["grill", "steak_house", "hamburger"], activities: ["bowling", "tourist"], artists: "", dietary: ["halal"] },
+    { name: "Sama", cuisines: ["cafe", "italian"], activities: ["museum", "tourist"], artists: "", dietary: [] },
+    { name: "Yazan", cuisines: ["mediterranean", "seafood", "lebanese"], activities: ["tourist", "art_gallery"], artists: "", dietary: [] },
   ] satisfies DemoMember[],
 } as const;

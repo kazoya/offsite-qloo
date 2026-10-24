@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { alwaysLeftOutText, coverageLine, DECISION_LABEL, ERROR_TEXT, FAIRNESS_LABEL, fairnessExplanationText, money, renderReason, ruleText, t, warningText, WEEKDAY_LABEL, type ErrorCode } from "@/i18n";
 import type { Candidate, Feedback, Lang, Plan, PlanOption } from "@/agent/types";
 import type { AgentReport } from "@/agent/loop";
-import { diffPlans } from "@/agent/diff";
+import { diffViews } from "@/agent/diff";
 import { DEMO_COMPANY } from "@/demo/company";
 import { d } from "@/i18n/demo";
 import { DecisionLog, DemoBanner, DemoSteps, DiffView, FairnessMeter, feedbackLabel, ManagerReject, ScoreBreakdownView } from "./DemoParts";
@@ -136,6 +136,8 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
   const [feedback, setFeedback] = useState<Feedback[]>([]);
   const [lastBody, setLastBody] = useState<Record<string, unknown> | null>(null);
   const [prevPlan, setPrevPlan] = useState<AgentPlanView | null>(null);
+  const [origPlan, setOrigPlan] = useState<AgentPlanView | null>(null);
+  const [diffBase, setDiffBase] = useState<"previous" | "original">("previous");
   const [replanBusy, setReplanBusy] = useState(false);
   const [newBudget, setNewBudget] = useState("");
   const [unfairTo, setUnfairTo] = useState("");
@@ -180,6 +182,10 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
         return;
       }
       setPrevPlan(replan ? plan : null);
+      if (!replan) {
+        setOrigPlan(json as AgentPlanView);
+        setDiffBase("previous");
+      }
       setPlan(json as AgentPlanView);
       setFeedback(fb);
       setSends({});
@@ -218,10 +224,11 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
 
   const venueNames = useMemo(() => {
     const m = new Map<string, string>();
-    for (const p of [prevPlan, plan]) for (const o of p?.options ?? []) for (const c of [o.dinner, o.activity]) m.set(c.place.entityId, l === "ar" ? (c.place.nameAr ?? c.place.nameEn) : c.place.nameEn);
+    for (const p of [origPlan, prevPlan, plan]) for (const o of p?.options ?? []) for (const c of [o.dinner, o.activity]) m.set(c.place.entityId, l === "ar" ? (c.place.nameAr ?? c.place.nameEn) : c.place.nameEn);
     return m;
-  }, [plan, prevPlan, l]);
-  const diff = useMemo(() => (plan && prevPlan ? diffPlans(prevPlan, plan) : null), [plan, prevPlan]);
+  }, [plan, prevPlan, origPlan, l]);
+  const diffs = useMemo(() => diffViews(origPlan, prevPlan, plan), [origPlan, prevPlan, plan]);
+  const diff = (diffBase === "original" && diffs.vsOriginal) || diffs.vsPrevious || null;
   const demoStep = !demoLoaded && !plan ? 0 : !plan ? 1 : !opened ? 2 : feedback.length === 0 ? 4 : 6;
 
   async function sendToManager(p: Plan, o: PlanOption) {
@@ -380,7 +387,16 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
 
       {plan && !busy && (
         <section aria-live="polite" onToggle={() => setOpened(true)} onClickCapture={(e) => { if ((e.target as HTMLElement).closest("summary")) setOpened(true); }}>
-          {diff && <DiffView diff={diff} l={l} currency={plan.currency} qloo={plan.agent?.qloo} />}
+          {diff && (
+            <DiffView
+              diff={diff}
+              l={l}
+              currency={plan.currency}
+              qloo={plan.agent?.qloo}
+              base={diffs.vsOriginal ? diffBase : undefined}
+              onBase={setDiffBase}
+            />
+          )}
           <div className="card">
             <p>{plan.overview}</p>
             {plan.schedule && (

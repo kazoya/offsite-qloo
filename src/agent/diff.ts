@@ -121,3 +121,17 @@ export function diffPlans(before: PlanLike, after: PlanLike): PlanDiff {
     venuesAdded: [...va.values()].filter((v) => !vb.has(v.id)),
   };
 }
+
+export interface DiffViews {
+  /** Latest plan vs the plan just before the last feedback. */
+  vsPrevious?: PlanDiff;
+  /** Latest plan vs the first plan of the session; omitted when the previous plan is the original (same diff). */
+  vsOriginal?: PlanDiff;
+}
+
+/** Both "what changed" views for a feedback session. No diff without a previous plan. */
+export function diffViews(original: PlanLike | null | undefined, previous: PlanLike | null | undefined, current: PlanLike | null | undefined): DiffViews {
+  if (!current || !previous) return {};
+  const vsPrevious = diffPlans(previous, current);
+  return original && original !== previous ? { vsPrevious, vsOriginal: diffPlans(original, current) } : { vsPrevious };
+}
