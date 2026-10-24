@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ERROR_TEXT, PIN_TEXT, money, ruleText, t, type PinErrorCode } from "@/i18n";
+import { ERROR_TEXT, PIN_TEXT, money, ruleText, t, type ErrorCode, type PinErrorCode } from "@/i18n";
 import type { PinMode } from "@/approvals/pin";
 import { cityProfile } from "@/connectors/qloo/catalog";
 import type { Lang } from "@/agent/types";
@@ -28,7 +28,14 @@ function Row({ r, l, onDone, mode, pin }: { r: ApprovalRequest; l: Lang; onDone:
         body: JSON.stringify({ action, actor, note }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) setErr(json.code && json.code in PIN_TEXT ? PIN_TEXT[json.code as PinErrorCode][l] : (json.error ?? String(res.status)));
+      if (!res.ok)
+        setErr(
+          json.code && json.code in PIN_TEXT
+            ? PIN_TEXT[json.code as PinErrorCode][l]
+            : json.code && json.code in ERROR_TEXT
+              ? ERROR_TEXT[json.code as ErrorCode][l]
+              : (json.error ?? String(res.status)),
+        );
       else onDone();
     } catch {
       setErr(ERROR_TEXT.network[l]);

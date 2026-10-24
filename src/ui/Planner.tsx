@@ -183,7 +183,7 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
         }),
       });
       const json = await res.json().catch(() => ({}));
-      setSends((s) => ({ ...s, [o.rank]: res.ok ? { state: "sent" } : { state: "error", msg: json.error ?? String(res.status) } }));
+      setSends((s) => ({ ...s, [o.rank]: res.ok ? { state: "sent" } : { state: "error", msg: json.code && json.code in ERROR_TEXT ? ERROR_TEXT[json.code as ErrorCode][l] : (json.error ?? String(res.status)) } }));
     } catch {
       setSends((s) => ({ ...s, [o.rank]: { state: "error", msg: ERROR_TEXT.network[l] } }));
     }

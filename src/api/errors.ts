@@ -1,8 +1,10 @@
 import { UnsupportedCityError, ValidationError } from "../agent/validate";
 import { QlooError } from "../connectors/qloo/client";
+import { DeadlineError } from "../agent/deadline";
+import { BadJsonError, BodyTooLargeError } from "./guard";
 
 /** Stable error codes the UI localises; messages stay English for logs/API clients. */
-export type ApiErrorCode = "bad_json" | "validation" | "unsupported_city" | "no_key" | "qloo_down" | "qloo_auth" | "internal";
+export type ApiErrorCode = "bad_json" | "validation" | "unsupported_city" | "no_key" | "qloo_down" | "qloo_auth" | "internal" | "timeout" | "rate_limited" | "too_large";
 
 export interface ApiError {
   status: number;
@@ -13,6 +15,9 @@ export interface ApiError {
 
 /** Maps an exception from the plan route to an HTTP status + code. Never echoes upstream bodies to the client. */
 export function toApiError(e: unknown): ApiError {
+  if (e instanceof BadJsonError) return { status: 400, code: "bad_json", error: e.message };
+  if (e instanceof BodyTooLargeError) return { status: 413, code: "too_large", error: e.message };
+  if (e instanceof DeadlineError) return { status: 504, code: "timeout", error: e.message };
   if (e instanceof UnsupportedCityError) return { status: 422, code: "unsupported_city", error: e.message, city: e.city };
   if (e instanceof ValidationError) return { status: 400, code: "validation", error: e.message };
   if (e instanceof QlooError) {
