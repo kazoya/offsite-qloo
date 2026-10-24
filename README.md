@@ -47,6 +47,23 @@ If the LLM call fails the app falls back to the rule-based text and adds a warni
 Every decision (including the best rejected combinations) is written to an audit log with sequence number, timestamp,
 subject, decision, rule and detail, and shown in the UI.
 
+**Manager approval view** (`/ar/approvals`, `/en/approvals`): options that hit R2 have a "Send to manager" button.
+The queue lists pending / approved / rejected requests; a manager enters their name and approves, or rejects with a
+required reason. Each request can be decided once (a second decision returns 409), the total is recomputed on the
+server, and only R2 plans are accepted. Every submit/approve/reject is appended to a separate approval audit trail
+(rules M1/M2). Storage is a local JSON file, `data/private/approvals.json` (gitignored); override with
+`APPROVALS_FILE=/path.json`, or `APPROVALS_FILE=memory` for RAM only. API: `GET /api/approvals?status=pending`,
+`POST /api/approvals`, `POST /api/approvals/:id` with `{action:"approve"|"reject", actor, note}`.
+This is a single-process demo store with **no authentication**: anyone who can reach the server can approve.
+
+## Errors and honest coverage in the UI
+
+`/api/plan` errors carry a stable `code` that the UI localises: `validation` (400), `unsupported_city` (422, e.g.
+Jeddah), `no_key` (503), `qloo_down` / `qloo_auth` (502, upstream bodies are never echoed), `internal` (500).
+The UI shows a loading skeleton, a retry button when Qloo is down, a "no plan fits" card, labels each price as an
+estimate (activities: "typical price, not from Qloo"), shows opening-hours status, and notes when Qloo has no Arabic name.
+Planner notes are translated to Arabic when the pattern is known; anything unrecognised is shown verbatim.
+
 ## Known limitations
 
 * Activity venues carry no price in Qloo; activity costs and restaurant prices (price_level → currency) are **our

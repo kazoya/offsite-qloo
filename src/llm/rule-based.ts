@@ -12,8 +12,8 @@ function optionSummary(o: PlanOption, plan: Plan, l: Lang): string {
   const top = [...o.dinner.reasons, ...o.activity.reasons].find((r) => r.kind === "artist_link" || r.kind === "cuisine_match");
   const why = top ? ` ${renderReason(top, l)}.` : "";
   return l === "ar"
-    ? `عشاء في ${d} ثم ${a}. التكلفة التقديرية ${money(o.costPerPerson, cur, l)} للشخص (${money(o.costTotal, cur, l)} إجمالاً).${why}`
-    : `Dinner at ${d}, then ${a}. Estimated ${money(o.costPerPerson, cur, l)} per person (${money(o.costTotal, cur, l)} total).${why}`;
+    ? `${a} أولاً، ثم العشاء في ${d}. التكلفة التقديرية ${money(o.costPerPerson, cur, l)} للشخص (${money(o.costTotal, cur, l)} إجمالاً).${why}`
+    : `${a} first, then dinner at ${d}. Estimated ${money(o.costPerPerson, cur, l)} per person (${money(o.costTotal, cur, l)} total).${why}`;
 }
 
 /** Deterministic provider: works with no LLM key and gives identical output for identical input. */
