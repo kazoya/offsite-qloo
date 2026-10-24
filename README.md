@@ -5,7 +5,9 @@ profile** from each team member's tastes, asks **Qloo's taste-intelligence API**
 filters them by **budget per person** and a **corporate approval policy**, and explains **why Qloo picked each item**.
 Built for the Qloo Agentic Hackathon (Devpost).
 
-> Status: milestone 1 (working core + UI + tests). Not deployed. See "What was built during the Submission Period".
+> Status: working core + bilingual UI + manager approvals + offline tests. Live demo: **https://offsite-qloo.vercel.app**
+> (deployed from `main`; the approval queue there is in-memory and resets, see below). Work in progress on branch
+> `feat/fairness-agent-loop` is not deployed. See "What was built during the Submission Period".
 
 ## How Qloo is used (the centerpiece)
 
@@ -83,10 +85,12 @@ Planner notes are translated to Arabic when the pattern is known; anything unrec
 
 ## What was built during the Submission Period
 
-Everything in this repository was written between **Oct 24 and Oct 31, 2026** (the Submission Period): the Qloo
-connector, agent core, policy/audit, LLM layer, bilingual UI, tests and docs. **No code was reused from earlier
-projects.** The official [qloo-hackathon-kit](https://github.com/qloo/qloo-hackathon-kit) was read for API conventions
-only; none of its code is included. Third-party dependencies: Next.js, React, TypeScript, Vitest, tsx (see package.json).
+All code in this repository was written during the Submission Period (Sep 30 2026 09:00 ET – Oct 30 2026 23:45 ET).
+Per `git log`, every commit so far is dated **Oct 24, 2026** (Amman time, UTC+3); `git log --date=iso` is the
+authoritative record. The work covers the Qloo connector, agent core, policy/audit, LLM layer, bilingual UI, manager
+approvals, tests and docs. **No code was reused from earlier projects.** The official
+[qloo-hackathon-kit](https://github.com/qloo/qloo-hackathon-kit) was read for API conventions only; none of its code is
+included. Third-party dependencies: Next.js, React, TypeScript, Vitest, tsx (see package.json).
 
 ## Data and terms
 
