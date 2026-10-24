@@ -34,7 +34,9 @@ With feedback it continues with `apply_feedback → (the same steps, pass "repla
 * `{type:"reject_venue", entityId}` removes that venue and other branches of the same chain before ranking.
 * `{type:"not_fair", member}` adds venues the member picked to the shortlist pool and ranks options covering them
   first when any fit the budget; otherwise it says so.
-`verify_feedback` checks each item against the new plan (budget respected, venue gone, member covered by option 1)
+* `{type:"manager_reject", dinnerId, activityId, reason}` (reason required) drops that exact dinner + activity pairing;
+  each venue may still appear in another option.
+`verify_feedback` checks each item against the new plan (budget respected, venue gone, member covered by option 1, rejected pairing not proposed)
 and reports unmet items as unmet. `plan.agent.baseline` and `changed` show what moved.
 
 **Autonomy limits** (`AUTONOMY`, enforced in code): the agent only proposes; it never books, reserves or pays, and it
@@ -63,3 +65,15 @@ original request plus the feedback list.
 
 ## Testing
 `npm test` runs offline: the Qloo client against a mocked `fetch`, the planner and the agent loop against a `FakeQloo` with invented venues, policy/audit, fairness, LLM providers, validation, i18n, the deadline, the rate limiter, the body cap and the API routes (no key needed).
+
+## Demo path UI and plan diff
+
+`src/agent/diff.ts` (`diffPlans`, pure) compares two plans option by option (by rank): same / changed / added /
+removed, venue ids and names, estimated cost per person delta, fairness mean and lowest-member deltas, and who became
+included or left out. The planner UI keeps the previous plan after each replan and renders the diff, the feedback
+checks and `plan.agent.log` as collapsible steps (`src/ui/DemoParts.tsx`, strings in `src/i18n/demo.ts`). The demo
+company is synthetic (`src/demo/company.ts`).
+
+Approvals default to a per-visitor sandbox (`src/approvals/sandbox.ts`): a `SandboxRegistry` of in-memory
+`ApprovalStore`s keyed by a random id in an HttpOnly cookie, with a two-hour idle TTL, LRU capacity eviction and a
+per-box request cap. `APPROVALS_MODE=shared` switches back to the single queue, where the PIN guard applies.

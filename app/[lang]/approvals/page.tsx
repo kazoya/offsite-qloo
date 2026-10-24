@@ -5,6 +5,7 @@ import type { Lang } from "@/agent/types";
 import { Approvals } from "@/ui/Approvals";
 import { Header } from "@/ui/Header";
 import { pinMode } from "@/approvals/pin";
+import { approvalsMode } from "@/approvals/sandbox";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function ApprovalsPage({ params }: { params: Promise<{ lang
   return (
     <main>
       <Header l={l} page="approvals" title={t("approvals", l)} subtitle={t("approvalsSub", l)} />
-      <Approvals lang={l} mode={pinMode()} />
+      <Approvals lang={l} mode={approvalsMode() === "sandbox" ? "sandbox" : pinMode()} />
       <footer className="muted">Powered by Qloo Taste AI</footer>
     </main>
   );

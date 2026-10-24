@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { ERROR_TEXT, PIN_TEXT, money, ruleText, t, type ErrorCode, type PinErrorCode } from "@/i18n";
 import type { PinMode } from "@/approvals/pin";
+import { d } from "@/i18n/demo";
+import { DemoBanner } from "./DemoParts";
+
+/** "sandbox": per-visitor demo queue, no PIN. Otherwise the shared queue's PIN guard mode. */
+export type ApprovalsUiMode = PinMode | "sandbox";
 import { cityProfile } from "@/connectors/qloo/catalog";
 import type { Lang } from "@/agent/types";
 import type { ApprovalData, ApprovalRequest, ApprovalStatus } from "@/approvals/store";
@@ -11,7 +16,7 @@ const FILTERS: (ApprovalStatus | "all")[] = ["pending", "approved", "rejected", 
 const fmtTime = (iso: string, l: Lang) =>
   new Intl.DateTimeFormat(l === "ar" ? "ar-JO-u-nu-latn" : "en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Amman" }).format(new Date(iso));
 
-function Row({ r, l, onDone, mode, pin }: { r: ApprovalRequest; l: Lang; onDone: () => void; mode: PinMode; pin: string }) {
+function Row({ r, l, onDone, mode, pin }: { r: ApprovalRequest; l: Lang; onDone: () => void; mode: ApprovalsUiMode; pin: string }) {
   const [actor, setActor] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -86,7 +91,7 @@ function Row({ r, l, onDone, mode, pin }: { r: ApprovalRequest; l: Lang; onDone:
   );
 }
 
-export function Approvals({ lang: l, mode }: { lang: Lang; mode: PinMode }) {
+export function Approvals({ lang: l, mode }: { lang: Lang; mode: ApprovalsUiMode }) {
   const [pin, setPin] = useState("");
   const [filter, setFilter] = useState<ApprovalStatus | "all">("pending");
   const [data, setData] = useState<ApprovalData | null>(null);
@@ -109,6 +114,7 @@ export function Approvals({ lang: l, mode }: { lang: Lang; mode: PinMode }) {
 
   return (
     <>
+      <DemoBanner l={l} text={mode === "sandbox" ? d("sandboxBanner", l) : d("sharedBanner", l)} />
       <div className="chips tabs" role="tablist" aria-label={t("approvals", l)}>
         {FILTERS.map((f) => (
           <button key={f} type="button" role="tab" className="chip" aria-selected={filter === f} aria-pressed={filter === f} onClick={() => setFilter(f)}>

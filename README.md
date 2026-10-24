@@ -59,13 +59,29 @@ counts, decision, reason, time) returned as `plan.agent.log`. Send `feedback` wi
 { "...": "the original request", "feedback": [
   { "type": "budget", "budgetPerPerson": 20 },
   { "type": "reject_venue", "entityId": "<id from the plan>", "reason": "too far" },
-  { "type": "not_fair", "member": "Sara" } ] }
+  { "type": "not_fair", "member": "Sara" },
+  { "type": "manager_reject", "dinnerId": "<id>", "activityId": "<id>", "reason": "too far from the office" } ] }
 ```
 
 The replan reuses the Qloo responses it already has, and `plan.agent.checks` says for each item whether it was met
 (an unmet request is reported, not hidden). The agent only proposes: it never books or pays, never sends anything to
 the approvals queue by itself, and every option over the R2 threshold waits for a manager. The response is the same
 Plan as before plus the `agent` field. (A UI for the log and the replan flow is planned; today it is API-only.)
+
+## Judge demo path (about 90–120 seconds)
+
+1. **Load demo company**: one click fills a synthetic 12-person team (invented names and tastes, Amman, 30 JOD per
+   person) and collapses it into a summary.
+2. **Plan the offsite**: three options from Qloo, with the loading skeleton and retry on errors.
+3. **Why Qloo picked this**: expandable reasons (matched tags, artist links, affinity) plus a score breakdown; every
+   price is labelled as an estimate.
+4. **Fairness and fit meter** per option: team average, lowest member, coverage N/M, who is left out, the Best fit /
+   Fairest / Cheapest badges, and "why option N may suit the team better".
+5. **Feedback**: change the budget, reject a venue, mark "not fair to <member>", or reject an option as the manager
+   (reason required). Each action replans with all feedback so far and reuses Qloo answers.
+6. **What changed**: old vs new per option (venues, estimated cost per person, fairness), the feedback checks, and the
+   agent decision log (collapsible steps with decision, reason and timing).
+7. **Approvals**: send an option over the threshold to the manager and approve it in your own demo sandbox.
 
 ## Approval policy and audit log
 
@@ -83,10 +99,16 @@ server, and only R2 plans are accepted. Every submit/approve/reject is appended 
 (rules M1/M2). Storage is a local JSON file, `data/private/approvals.json` (gitignored); override with
 `APPROVALS_FILE=/path.json`, or `APPROVALS_FILE=memory` for RAM only. API: `GET /api/approvals?status=pending`,
 `POST /api/approvals`, `POST /api/approvals/:id` with `{action:"approve"|"reject", actor, note}`.
-**Demo PIN guard:** approve/reject require the manager PIN from `APPROVALS_PIN` (checked on the server, sent as the
-`x-approvals-pin` header; 5 wrong tries lock a client for 10 minutes). If `APPROVALS_PIN` is unset in production,
-approve/reject are disabled and the page says so in both languages; in development they stay open. Viewing the queue
-needs no PIN. This is a shared demo PIN, not real user accounts or roles.
+**Demo sandbox (default):** each visitor gets a private in-memory approvals queue, keyed by an HttpOnly
+`offsite_demo` cookie (random id, SameSite=Lax, Secure in production). Anyone can try submit → approve/reject without a
+PIN, nobody sees anyone else's requests, and a box expires after two idle hours (at most 2000 boxes, 25 requests each).
+The page shows a "demo: resets, no real bookings" banner. Nothing is booked or paid in any mode.
+
+**Shared queue (`APPROVALS_MODE=shared`, opt-in):** one queue for everyone, stored as above. Approve/reject then require
+the PIN from `APPROVALS_PIN` (checked on the server, sent as the `x-approvals-pin` header; 5 wrong tries lock a client
+for 10 minutes). If `APPROVALS_PIN` is unset in production, approve/reject are disabled and the page says so; in
+development they stay open. The PIN is a demo guard against casual clicks, not authentication: there are no user
+accounts or roles.
 
 **On Vercel** the filesystem is read-only, so the queue uses `APPROVALS_FILE=memory` (the default when `VERCEL` is set)
 and **resets whenever the serverless instance restarts or scales**: a request sent to the manager can disappear, and two

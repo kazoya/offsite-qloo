@@ -1,0 +1,111 @@
+import type { Lang } from "../agent/types";
+import type { AgentStepName } from "../agent/loop";
+import type { ChangeStatus } from "../agent/diff";
+
+/** Strings for the judge demo path (demo company, fairness meter, feedback, diff, decision log, sandbox). */
+export const D = {
+  banner: {
+    en: "Demo: everything resets, no real bookings or payments. Prices are estimates.",
+    ar: "عرض تجريبي: كل شيء يُعاد ضبطه، ولا حجوزات أو مدفوعات حقيقية. الأسعار تقديرية.",
+  },
+  sandboxBanner: {
+    en: "Demo sandbox: this approvals queue is private to your browser, resets after two hours and books nothing. No PIN needed here; this is not production sign-in.",
+    ar: "صندوق تجريبي: قائمة الموافقات هذه خاصة بمتصفحك، تُمسح بعد ساعتين ولا تحجز شيئًا. لا حاجة لرمز PIN هنا؛ وهذا ليس تسجيل دخول فعليًا.",
+  },
+  sharedBanner: {
+    en: "Shared demo queue: the PIN is a demo guard against casual clicks, not production authentication.",
+    ar: "قائمة تجريبية مشتركة: رمز PIN حماية تجريبية من النقرات العابرة، وليس مصادقة فعلية.",
+  },
+  steps: { en: "Demo path", ar: "مسار العرض" },
+  step1: { en: "Load the demo company", ar: "حمّل الشركة التجريبية" },
+  step2: { en: "Plan 3 options with Qloo", ar: "خطّط 3 خيارات مع Qloo" },
+  step3: { en: "Open 'why'", ar: "افتح «لماذا»" },
+  step4: { en: "Compare fairness", ar: "قارن العدالة" },
+  step5: { en: "Give feedback", ar: "أعطِ ملاحظات" },
+  step6: { en: "See what changed", ar: "شاهد ما تغيّر" },
+  step7: { en: "Approve in the sandbox", ar: "وافق في الصندوق التجريبي" },
+  loadDemo: { en: "Load demo company (12 people)", ar: "حمّل الشركة التجريبية (12 شخصًا)" },
+  demoLoaded: { en: "Demo company loaded", ar: "تم تحميل الشركة التجريبية" },
+  synthetic: { en: "Synthetic team: invented names and tastes.", ar: "فريق اصطناعي: أسماء وأذواق مُختلَقة." },
+  editMembers: { en: "Edit members", ar: "عدّل الأعضاء" },
+  hideMembers: { en: "Hide member details", ar: "أخفِ تفاصيل الأعضاء" },
+  meter: { en: "Fairness and fit", ar: "العدالة والملاءمة" },
+  teamAvg: { en: "Team average", ar: "متوسط الفريق" },
+  lowest: { en: "Lowest member", ar: "أقل عضو" },
+  coverage: { en: "Coverage", ar: "التغطية" },
+  leftOut: { en: "Left out", ar: "مُستبعَدون" },
+  nobody: { en: "nobody", ar: "لا أحد" },
+  whySuits: { en: "Why option {n} may suit the team better", ar: "لماذا قد يناسب الخيار {n} الفريق أكثر" },
+  breakdown: { en: "Score breakdown", ar: "تفصيل الدرجة" },
+  affinity: { en: "Qloo affinity", ar: "تقارب Qloo" },
+  memberCoverage: { en: "Member match", ar: "مطابقة الأعضاء" },
+  rating: { en: "Rating", ar: "التقييم" },
+  teamFit: { en: "Group fit tags", ar: "وسوم المجموعات" },
+  dietPenalty: { en: "Diet penalty", ar: "خصم النظام الغذائي" },
+  matches: { en: "Matches", ar: "يطابق" },
+  priceEstimate: { en: "Price is an estimate, not a quote.", ar: "السعر تقدير وليس عرض سعر." },
+  feedback: { en: "Give the agent feedback", ar: "أعطِ الوكيل ملاحظات" },
+  feedbackHint: {
+    en: "Each change replans with all feedback so far, reusing Qloo answers where it can.",
+    ar: "كل تغيير يعيد التخطيط بكل الملاحظات حتى الآن، مع إعادة استخدام إجابات Qloo حيث أمكن.",
+  },
+  newBudget: { en: "New budget per person", ar: "ميزانية جديدة للشخص" },
+  applyBudget: { en: "Replan with this budget", ar: "أعد التخطيط بهذه الميزانية" },
+  notFairTo: { en: "Not fair to", ar: "غير عادل لـ" },
+  markNotFair: { en: "Replan for them", ar: "أعد التخطيط لأجله" },
+  rejectVenue: { en: "Reject venue", ar: "ارفض المكان" },
+  managerReject: { en: "Manager: reject this option", ar: "المدير: ارفض هذا الخيار" },
+  rejectReason: { en: "Reason (required)", ar: "السبب (مطلوب)" },
+  confirmReject: { en: "Reject and replan", ar: "ارفض وأعد التخطيط" },
+  cancel: { en: "Cancel", ar: "إلغاء" },
+  replanning: { en: "Replanning...", ar: "جارٍ إعادة التخطيط..." },
+  feedbackSoFar: { en: "Feedback so far", ar: "الملاحظات حتى الآن" },
+  startOver: { en: "Clear feedback", ar: "امسح الملاحظات" },
+  checks: { en: "Did the agent meet the feedback?", ar: "هل التزم الوكيل بالملاحظات؟" },
+  met: { en: "met", ar: "تحقّق" },
+  notMet: { en: "not met", ar: "لم يتحقّق" },
+  whatChanged: { en: "What changed", ar: "ما الذي تغيّر" },
+  noChange: { en: "The options did not change.", ar: "لم تتغيّر الخيارات." },
+  before: { en: "Before", ar: "قبل" },
+  after: { en: "After", ar: "بعد" },
+  costPp: { en: "Cost per person (est.)", ar: "التكلفة للشخص (تقديرية)" },
+  fairness: { en: "Fairness (avg / lowest)", ar: "العدالة (المتوسط / الأقل)" },
+  nowIncluded: { en: "Now included", ar: "أصبحوا مشمولين" },
+  nowLeftOut: { en: "Now left out", ar: "أصبحوا مُستبعَدين" },
+  budgetLine: { en: "Budget per person", ar: "الميزانية للشخص" },
+  qlooCalls: { en: "Qloo calls", ar: "طلبات Qloo" },
+  reused: { en: "reused answers", ar: "إجابات مُعاد استخدامها" },
+  log: { en: "Agent decision log", ar: "سجل قرارات الوكيل" },
+  logNote: {
+    en: "Each step: what it looked at, what it decided, why, and how long it took.",
+    ar: "كل خطوة: ما الذي فحصته، وما قررته، ولماذا، وكم استغرقت.",
+  },
+  logLangNote: { en: "", ar: "نص القرارات والأسباب بالإنجليزية كما سجّله الوكيل." },
+  inputs: { en: "Inputs", ar: "المدخلات" },
+  decision: { en: "Decision", ar: "القرار" },
+  reason: { en: "Reason", ar: "السبب" },
+  initial: { en: "plan", ar: "تخطيط" },
+  replan: { en: "replan", ar: "إعادة تخطيط" },
+} satisfies Record<string, Record<Lang, string>>;
+
+export const d = (k: keyof typeof D, l: Lang, vars: Record<string, string | number> = {}) =>
+  D[k][l].replace(/\{(\w+)\}/g, (_, v: string) => String(vars[v] ?? ""));
+
+export const STEP_LABEL: Record<AgentStepName, Record<Lang, string>> = {
+  understand: { en: "Understand the request", ar: "فهم الطلب" },
+  qloo_queries: { en: "Ask Qloo", ar: "سؤال Qloo" },
+  rank: { en: "Rank venues", ar: "ترتيب الأماكن" },
+  budget_time_check: { en: "Budget and hours check", ar: "فحص الميزانية والدوام" },
+  propose: { en: "Propose options", ar: "اقتراح الخيارات" },
+  explain: { en: "Explain", ar: "الشرح" },
+  approval_gate: { en: "Approval gate", ar: "بوابة الموافقة" },
+  apply_feedback: { en: "Apply feedback", ar: "تطبيق الملاحظات" },
+  verify_feedback: { en: "Verify feedback", ar: "التحقق من الملاحظات" },
+};
+
+export const CHANGE_LABEL: Record<ChangeStatus, Record<Lang, string>> = {
+  same: { en: "unchanged", ar: "بلا تغيير" },
+  changed: { en: "changed", ar: "تغيّر" },
+  added: { en: "new", ar: "جديد" },
+  removed: { en: "dropped", ar: "حُذف" },
+};

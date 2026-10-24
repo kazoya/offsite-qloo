@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { alwaysLeftOutText, coverageLine, DECISION_LABEL, ERROR_TEXT, FAIRNESS_LABEL, fairnessExplanationText, money, renderReason, ruleText, t, warningText, WEEKDAY_LABEL, type ErrorCode } from "@/i18n";
-import type { Candidate, Lang, Plan, PlanOption } from "@/agent/types";
+import type { Candidate, Feedback, Lang, Plan, PlanOption } from "@/agent/types";
+import type { AgentReport } from "@/agent/loop";
+import { diffPlans } from "@/agent/diff";
+import { DEMO_COMPANY } from "@/demo/company";
+import { d } from "@/i18n/demo";
+import { DecisionLog, DemoBanner, DemoSteps, DiffView, FairnessMeter, feedbackLabel, ManagerReject, ScoreBreakdownView } from "./DemoParts";
 import { WEEKDAYS } from "@/agent/hours";
 
 interface Opt { key: string; label: string }
@@ -17,6 +22,7 @@ interface Props {
 }
 interface MemberForm { name: string; cuisines: string[]; activities: string[]; artists: string; dietary: string[] }
 interface UiError { code: ErrorCode; detail?: string }
+type AgentPlanView = Plan & { agent?: AgentReport };
 type SendState = { state: "sending" } | { state: "sent" } | { state: "error"; msg: string };
 
 const SAMPLE: MemberForm[] = [
@@ -45,7 +51,7 @@ function weekdayLabel(en: string | undefined, l: Lang) {
   return i >= 0 ? WEEKDAY_LABEL[i]![l] : (en ?? "");
 }
 
-function CandidateView({ c, plan, l }: { c: Candidate; plan: Plan; l: Lang }) {
+function CandidateView({ c, plan, l, onReject, busy }: { c: Candidate; plan: Plan; l: Lang; onReject?: () => void; busy?: boolean }) {
   const missingAr = l === "ar" && !c.place.nameAr;
   const name = l === "ar" ? (c.place.nameAr ?? c.place.nameEn) : c.place.nameEn;
   return (
@@ -83,7 +89,13 @@ function CandidateView({ c, plan, l }: { c: Candidate; plan: Plan; l: Lang }) {
             <li key={i}>{renderReason(r, l)}</li>
           ))}
         </ul>
+        <ScoreBreakdownView c={c} l={l} />
       </details>
+      {onReject && (
+        <button type="button" className="chip dangerchip small" disabled={busy} onClick={onReject}>
+          ✕ {d("rejectVenue", l)}
+        </button>
+      )}
     </div>
   );
 }
@@ -117,34 +129,49 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
   const [threshold, setThreshold] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<UiError | null>(null);
-  const [plan, setPlan] = useState<Plan | null>(null);
+  const [plan, setPlan] = useState<AgentPlanView | null>(null);
   const [sends, setSends] = useState<Record<number, SendState>>({});
+  const [demoLoaded, setDemoLoaded] = useState(false);
+  const [showMembers, setShowMembers] = useState(true);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
+  const [lastBody, setLastBody] = useState<Record<string, unknown> | null>(null);
+  const [prevPlan, setPrevPlan] = useState<AgentPlanView | null>(null);
+  const [replanBusy, setReplanBusy] = useState(false);
+  const [newBudget, setNewBudget] = useState("");
+  const [unfairTo, setUnfairTo] = useState("");
+  const [opened, setOpened] = useState(false);
 
   const patch = (i: number, p: Partial<MemberForm>) => setMembers((ms) => ms.map((m, j) => (j === i ? { ...m, ...p } : m)));
   const unsupportedPick = city.startsWith(UNSUPPORTED_PREFIX) ? unsupported.find((u) => UNSUPPORTED_PREFIX + u.key === city) : undefined;
   const currency = cities.find((c) => c.key === city)?.currency ?? "";
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (unsupportedPick) return;
-    setBusy(true);
+  function loadDemo() {
+    setMembers(DEMO_COMPANY.members.map((m) => ({ ...m, cuisines: [...m.cuisines], activities: [...m.activities], dietary: [...m.dietary] })));
+    setCity(DEMO_COMPANY.city);
+    setBudget(DEMO_COMPANY.budgetPerPerson);
+    setHeadcount(DEMO_COMPANY.headcount);
+    setDate(DEMO_COMPANY.date);
+    setStartTime(DEMO_COMPANY.startTime);
+    setThreshold("");
+    setDemoLoaded(true);
+    setShowMembers(false);
+  }
+
+  /** POST the base request with the feedback so far. A replan keeps the current plan visible until the new one arrives. */
+  async function run(body: Record<string, unknown>, fb: Feedback[]) {
+    const replan = fb.length > 0 && !!plan;
+    if (replan) setReplanBusy(true);
+    else {
+      setBusy(true);
+      setPlan(null);
+      setPrevPlan(null);
+    }
     setError(null);
-    setPlan(null);
-    setSends({});
     try {
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          team: members.map((m) => ({ ...m, artists: m.artists.split(/[,،]/).map((s) => s.trim()).filter(Boolean) })),
-          city,
-          budgetPerPerson: budget,
-          headcount,
-          date,
-          startTime,
-          language: l,
-          ...(threshold ? { approvalThreshold: Number(threshold) } : {}),
-        }),
+        body: JSON.stringify(fb.length ? { ...body, feedback: fb } : body),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -152,13 +179,50 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
         setError({ code, detail: code === "validation" ? json.error : undefined });
         return;
       }
-      setPlan(json as Plan);
+      setPrevPlan(replan ? plan : null);
+      setPlan(json as AgentPlanView);
+      setFeedback(fb);
+      setSends({});
     } catch {
       setError({ code: "network" });
     } finally {
       setBusy(false);
+      setReplanBusy(false);
     }
   }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (unsupportedPick) return;
+    const body = {
+      team: members.map((m) => ({ ...m, artists: m.artists.split(/[,،]/).map((s) => s.trim()).filter(Boolean) })),
+      city,
+      budgetPerPerson: budget,
+      headcount,
+      date,
+      startTime,
+      language: l,
+      ...(threshold ? { approvalThreshold: Number(threshold) } : {}),
+    };
+    setLastBody(body);
+    setFeedback([]);
+    await run(body, []);
+  }
+
+  /** Add one feedback item (a new budget replaces an earlier one) and replan. */
+  function giveFeedback(fb: Feedback) {
+    if (!lastBody) return;
+    const rest = fb.type === "budget" ? feedback.filter((x) => x.type !== "budget") : feedback;
+    void run(lastBody, [...rest, fb]);
+  }
+
+  const venueNames = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of [prevPlan, plan]) for (const o of p?.options ?? []) for (const c of [o.dinner, o.activity]) m.set(c.place.entityId, l === "ar" ? (c.place.nameAr ?? c.place.nameEn) : c.place.nameEn);
+    return m;
+  }, [plan, prevPlan, l]);
+  const diff = useMemo(() => (plan && prevPlan ? diffPlans(prevPlan, plan) : null), [plan, prevPlan]);
+  const demoStep = !demoLoaded && !plan ? 0 : !plan ? 1 : !opened ? 2 : feedback.length === 0 ? 4 : 6;
 
   async function sendToManager(p: Plan, o: PlanOption) {
     setSends((s) => ({ ...s, [o.rank]: { state: "sending" } }));
@@ -191,7 +255,19 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
 
   return (
     <>
+      <DemoBanner l={l} />
+      <DemoSteps l={l} at={demoStep} />
       <form onSubmit={submit} className="card" aria-label={t("plan", l)}>
+        <div className="row demorow">
+          <button type="button" className="primary demo" onClick={loadDemo}>
+            {d("loadDemo", l)}
+          </button>
+          {demoLoaded && (
+            <span className="muted">
+              ✓ {d("demoLoaded", l)}: <bdi>{l === "ar" ? DEMO_COMPANY.nameAr : DEMO_COMPANY.nameEn}</bdi> · {d("synthetic", l)}
+            </span>
+          )}
+        </div>
         <div className="grid">
           <div>
             <label htmlFor="city">{t("city", l)}</label>
@@ -231,8 +307,27 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
           </p>
         )}
 
-        <h2 style={{ marginTop: 18 }}>{t("team", l)}</h2>
-        {members.map((m, i) => (
+        <h2 style={{ marginTop: 18 }}>
+          {t("team", l)} <span className="muted">({members.length})</span>
+        </h2>
+        {!showMembers && (
+          <div className="teamsummary">
+            {members.map((m, i) => (
+              <span className="chip static" key={i}>
+                <bdi>{m.name}</bdi>
+                <span className="muted">
+                  {" "}· {[...m.cuisines, ...m.activities].map((k) => cuisines.find((c) => c.key === k)?.label ?? activities.find((a) => a.key === k)?.label ?? k).join(l === "ar" ? "، " : ", ")}
+                  {m.dietary.length ? ` · ${m.dietary.map((k) => dietary.find((x) => x.key === k)?.label ?? k).join(", ")}` : ""}
+                </span>
+              </span>
+            ))}
+            <button type="button" className="link" onClick={() => setShowMembers(true)}>{d("editMembers", l)}</button>
+          </div>
+        )}
+        {showMembers && demoLoaded && (
+          <button type="button" className="link" onClick={() => setShowMembers(false)}>{d("hideMembers", l)}</button>
+        )}
+        {showMembers && members.map((m, i) => (
           <fieldset className="member" key={i}>
             <legend className="sr">{m.name || `${t("name", l)} ${i + 1}`}</legend>
             <div className="grid">
@@ -259,7 +354,7 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
           </fieldset>
         ))}
         <div className="row">
-          <button type="button" className="chip" onClick={() => setMembers((ms) => [...ms, { name: "", cuisines: [], activities: [], artists: "", dietary: [] }])}>
+          <button type="button" className="chip" onClick={() => { setShowMembers(true); setMembers((ms) => [...ms, { name: "", cuisines: [], activities: [], artists: "", dietary: [] }]); }}>
             + {t("addMember", l)}
           </button>
           <button className="primary" disabled={busy || !!unsupportedPick} type="submit">
@@ -276,7 +371,7 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
             {error.detail ? <>: <bdi dir="ltr">{error.detail}</bdi></> : null}
           </p>
           {(error.code === "qloo_down" || error.code === "network") && (
-            <button type="button" className="chip" onClick={(e) => submit(e as unknown as React.FormEvent)}>{t("retry", l)}</button>
+            <button type="button" className="chip" onClick={() => (lastBody ? void run(lastBody, feedback) : undefined)}>{t("retry", l)}</button>
           )}
         </div>
       )}
@@ -284,7 +379,8 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
       {busy && <Skeleton l={l} />}
 
       {plan && !busy && (
-        <section aria-live="polite">
+        <section aria-live="polite" onToggle={() => setOpened(true)} onClickCapture={(e) => { if ((e.target as HTMLElement).closest("summary")) setOpened(true); }}>
+          {diff && <DiffView diff={diff} l={l} currency={plan.currency} qloo={plan.agent?.qloo} />}
           <div className="card">
             <p>{plan.overview}</p>
             {plan.schedule && (
@@ -316,7 +412,7 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
 
           {plan.fairness && (plan.fairness.explanation || plan.fairness.alwaysLeftOut.length > 0) && (
             <div className="card fairness" role="note">
-              <h2>{t("fairnessTitle", l)}</h2>
+              <h2>{plan.fairness.explanation ? d("whySuits", l, { n: plan.fairness.explanation.fairerRank }) : t("fairnessTitle", l)}</h2>
               {plan.fairness.explanation && <p>{fairnessExplanationText(plan.fairness.explanation, plan.currency, l)}</p>}
               {plan.fairness.alwaysLeftOut.length > 0 && <p className="muted">{alwaysLeftOutText(plan.fairness.alwaysLeftOut, l)}</p>}
             </div>
@@ -338,10 +434,19 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
                   </span>
                 </div>
                 {o.summary && <p>{o.summary}</p>}
+                {f && <FairnessMeter f={f} l={l} />}
                 {f && <p className="muted coverage">{coverageLine(f, l)}</p>}
                 <div className="pair">
-                  <CandidateView c={o.activity} plan={plan} l={l} />
-                  <CandidateView c={o.dinner} plan={plan} l={l} />
+                  <CandidateView c={o.activity} plan={plan} l={l} busy={replanBusy} onReject={() => giveFeedback({ type: "reject_venue", entityId: o.activity.place.entityId })} />
+                  <CandidateView c={o.dinner} plan={plan} l={l} busy={replanBusy} onReject={() => giveFeedback({ type: "reject_venue", entityId: o.dinner.place.entityId })} />
+                </div>
+                <div className="row">
+                  <ManagerReject
+                    key={`${o.dinner.place.entityId}|${o.activity.place.entityId}`}
+                    l={l}
+                    busy={replanBusy}
+                    onReject={(reason) => giveFeedback({ type: "manager_reject", dinnerId: o.dinner.place.entityId, activityId: o.activity.place.entityId, reason })}
+                  />
                 </div>
                 {o.decision === "needs_manager_approval" && (
                   <div className="row">
@@ -361,6 +466,56 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
               </article>
             );
           })}
+
+          {lastBody && (
+            <div className="card feedbackbar">
+              <h2>{d("feedback", l)}</h2>
+              <p className="muted">{d("feedbackHint", l)}</p>
+              <div className="fbgrid">
+                <div>
+                  <label htmlFor="fb-budget">{d("newBudget", l)} {plan.currency && `(${plan.currency})`}</label>
+                  <div className="row">
+                    <input id="fb-budget" type="number" inputMode="decimal" min={1} placeholder={String(plan.request.budgetPerPerson)} value={newBudget} onChange={(e) => setNewBudget(e.target.value)} />
+                    <button type="button" className="chip" disabled={replanBusy || !(Number(newBudget) > 0)} onClick={() => giveFeedback({ type: "budget", budgetPerPerson: Number(newBudget) })}>
+                      {d("applyBudget", l)}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="fb-unfair">{d("notFairTo", l)}</label>
+                  <div className="row">
+                    <select id="fb-unfair" value={unfairTo} onChange={(e) => setUnfairTo(e.target.value)}>
+                      <option value="">—</option>
+                      {plan.request.team.map((m) => (
+                        <option key={m.name} value={m.name}>{m.name}{plan.fairness?.options[0]?.leftOut.includes(m.name) ? " ⚠" : ""}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="chip" disabled={replanBusy || !unfairTo} onClick={() => giveFeedback({ type: "not_fair", member: unfairTo })}>
+                      {d("markNotFair", l)}
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {replanBusy && (
+                <p className="muted loading" role="status"><span className="spinner" aria-hidden="true" /> {d("replanning", l)}</p>
+              )}
+              {feedback.length > 0 && (
+                <div className="fbsofar">
+                  <p className="kind">{d("feedbackSoFar", l)}</p>
+                  <div className="chips">
+                    {feedback.map((fb, i) => (
+                      <span className="chip static" key={i}>{feedbackLabel(fb, l, (id) => venueNames.get(id) ?? id, plan.currency)}</span>
+                    ))}
+                  </div>
+                  <button type="button" className="link" disabled={replanBusy} onClick={() => { setPrevPlan(null); void run(lastBody, []); setFeedback([]); }}>
+                    {d("startOver", l)}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {plan.agent && <DecisionLog agent={plan.agent} l={l} />}
 
           {plan.warnings.length > 0 && (
             <div className="card">
