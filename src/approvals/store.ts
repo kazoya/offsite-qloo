@@ -146,6 +146,8 @@ export class ApprovalStore {
     private readonly db: Persistence = new MemoryPersistence(),
     private readonly now: () => Date = () => new Date(),
     private readonly newId: () => string = () => crypto.randomUUID(),
+    /** Cap on stored requests (the per-visitor demo sandbox uses a small one). */
+    private readonly maxRequests: number = Number.POSITIVE_INFINITY,
   ) {}
 
   /** Serialise read-modify-write cycles so concurrent requests cannot drop each other's updates. */
@@ -191,6 +193,7 @@ export class ApprovalStore {
           r.headcount === input.headcount,
       );
       if (dup) return dup; // idempotent re-submit
+      if (d.requests.length >= this.maxRequests) throw new ApprovalError("This demo sandbox is full; it resets after two hours.", 409);
       const at = this.now().toISOString();
       const req: ApprovalRequest = { ...input, id: this.newId(), createdAt: at, status: "pending", currency: cityProfile(input.city).currency };
       d.requests.push(req);

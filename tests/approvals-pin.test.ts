@@ -49,6 +49,7 @@ describe("approve/reject route with the guard", () => {
   async function setup(env: Record<string, string>) {
     vi.resetModules();
     vi.stubEnv("APPROVALS_FILE", "memory");
+    vi.stubEnv("APPROVALS_MODE", "shared"); // the PIN guards only the explicitly shared queue
     for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
     const { approvalStore, parseSubmission } = await import("@/approvals/store");
     const { POST } = await import("../app/api/approvals/[id]/route");
