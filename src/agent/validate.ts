@@ -1,7 +1,17 @@
-import { CITIES } from "../connectors/qloo/catalog";
+import { CITIES, unsupportedCity } from "../connectors/qloo/catalog";
 import type { Lang, Member, PlanRequest } from "./types";
 
-export class ValidationError extends Error {}
+export class ValidationError extends Error {
+  readonly code: "validation" | "unsupported_city" = "validation";
+}
+
+/** City we know about but Qloo cannot resolve at city level (see UNSUPPORTED_CITIES). */
+export class UnsupportedCityError extends ValidationError {
+  override readonly code = "unsupported_city" as const;
+  constructor(readonly city: string, reason: string) {
+    super(`${city} is not supported yet: ${reason}`);
+  }
+}
 
 const str = (v: unknown, max = 80) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 const strs = (v: unknown, maxItems = 12) =>
@@ -26,6 +36,8 @@ export function parsePlanRequest(body: unknown): PlanRequest {
   });
 
   const city = str(b.city, 40);
+  const unsupported = unsupportedCity(city);
+  if (unsupported) throw new UnsupportedCityError(unsupported.name, unsupported.reasonEn);
   const known = CITIES.some((c) => c.name.toLowerCase() === city.toLowerCase() || c.ar === city);
   if (!known) throw new ValidationError(`city must be one of: ${CITIES.map((c) => c.name).join(", ")}.`);
 

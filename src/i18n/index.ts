@@ -42,7 +42,88 @@ export const UI = {
     en: "Costs are our estimates from Qloo price level and city factors, not menu prices.",
     ar: "التكاليف تقديرات منا مبنية على مستوى السعر من Qloo ومعاملات المدينة، وليست أسعار القوائم.",
   },
+  startTime: { en: "Start time", ar: "وقت البدء" },
+  schedule: { en: "Evening plan", ar: "برنامج الأمسية" },
+  estPrice: { en: "Estimated price", ar: "سعر تقديري" },
+  actPrice: { en: "Typical price, not from Qloo", ar: "سعر نموذجي، ليس من Qloo" },
+  assumedPrice: { en: "Price level missing, assumed mid-range", ar: "مستوى السعر غير متوفر، افترضنا فئة متوسطة" },
+  hoursOpen: { en: "Open at this time", ar: "مفتوح في هذا الوقت" },
+  hoursUnknown: { en: "Hours unknown", ar: "ساعات العمل غير معروفة" },
+  noArName: { en: "No Arabic name in Qloo; showing the English name", ar: "لا يوجد اسم عربي في Qloo؛ نعرض الاسم الإنجليزي" },
+  noOptionsTitle: { en: "No plan fits yet", ar: "لا توجد خطة مناسبة بعد" },
+  noOptionsHint: {
+    en: "Try a higher budget per person, fewer dietary limits, another start time, or broader picks.",
+    ar: "جرّب ميزانية أعلى للشخص، أو قيودًا غذائية أقل، أو وقت بدء آخر، أو اختيارات أوسع.",
+  },
+  loadingHint: { en: "Matching the team's taste with Qloo venues...", ar: "نطابق ذوق الفريق مع أماكن Qloo..." },
+  retry: { en: "Try again", ar: "حاول مرة أخرى" },
+  sendToManager: { en: "Send to manager", ar: "أرسل للمدير" },
+  sending: { en: "Sending...", ar: "جارٍ الإرسال..." },
+  sent: { en: "Sent for approval", ar: "أُرسلت للموافقة" },
+  viewApprovals: { en: "Open approvals", ar: "افتح الموافقات" },
+  approvals: { en: "Manager approvals", ar: "موافقات المدير" },
+  approvalsSub: {
+    en: "Plans whose total spend is above the approval threshold (default 400 USD in local currency).",
+    ar: "الخطط التي يتجاوز إجمالي إنفاقها حد الموافقة (الافتراضي 400 دولار بالعملة المحلية).",
+  },
+  backToPlanner: { en: "Back to planner", ar: "العودة للمخطط" },
+  pending: { en: "Pending", ar: "قيد الانتظار" },
+  submitted: { en: "Submitted", ar: "أُرسلت" },
+  approved: { en: "Approved", ar: "تمت الموافقة" },
+  rejected: { en: "Rejected", ar: "مرفوض" },
+  all: { en: "All", ar: "الكل" },
+  approve: { en: "Approve", ar: "موافقة" },
+  reject: { en: "Reject", ar: "رفض" },
+  approver: { en: "Your name (approver)", ar: "اسمك (المعتمِد)" },
+  note: { en: "Note (required to reject)", ar: "ملاحظة (مطلوبة عند الرفض)" },
+  noApprovals: { en: "Nothing here yet. Send an option that needs approval from the planner.", ar: "لا شيء هنا بعد. أرسل خيارًا يحتاج موافقة من المخطط." },
+  thresholdLabel: { en: "threshold", ar: "الحد" },
+  requestedBy: { en: "requested by", ar: "طلبها" },
+  decidedBy: { en: "decided by", ar: "قرّرها" },
+  approvalAudit: { en: "Approval audit trail", ar: "سجل تدقيق الموافقات" },
+  people: { en: "people", ar: "أشخاص" },
+  loading: { en: "Loading...", ar: "جارٍ التحميل..." },
 } satisfies Record<string, Record<Lang, string>>;
+
+export type ErrorCode = "bad_json" | "validation" | "unsupported_city" | "no_key" | "qloo_down" | "qloo_auth" | "internal" | "network";
+
+/** Localised, honest error copy keyed by the API error code. */
+export const ERROR_TEXT: Record<ErrorCode, Record<Lang, string>> = {
+  bad_json: { en: "The request could not be read.", ar: "تعذّرت قراءة الطلب." },
+  validation: { en: "Please check the form", ar: "يرجى مراجعة النموذج" },
+  unsupported_city: { en: "This city is not supported yet", ar: "هذه المدينة غير مدعومة بعد" },
+  no_key: { en: "The server has no Qloo API key configured, so it cannot plan right now.", ar: "لا يوجد مفتاح Qloo على الخادم، لذا لا يمكن التخطيط الآن." },
+  qloo_down: { en: "Qloo is not responding right now. Nothing was planned; please try again in a minute.", ar: "Qloo لا يستجيب الآن. لم يتم التخطيط؛ حاول مرة أخرى بعد دقيقة." },
+  qloo_auth: { en: "Qloo rejected the server's API key.", ar: "رفض Qloo مفتاح الخادم." },
+  internal: { en: "Unexpected server error.", ar: "خطأ غير متوقع في الخادم." },
+  network: { en: "Could not reach the server. Check your connection.", ar: "تعذّر الوصول إلى الخادم. تحقق من الاتصال." },
+};
+
+/** Arabic rendering of the planner's English notes. Unknown notes are shown as-is (English) rather than guessed. */
+const WARNING_AR: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/^(\d+) (?:restaurant was|restaurants were) left out because Qloo opening hours show them closed at the planned time\.$/, (m) => `استبعدنا ${m[1]} من المطاعم لأن ساعات العمل في Qloo تظهر أنها مغلقة في الوقت المخطط.`],
+  [/^(\d+) (?:activity venue was|activity venues were) left out because Qloo opening hours show them closed at the planned time\.$/, (m) => `استبعدنا ${m[1]} من أماكن الأنشطة لأن ساعات العمل في Qloo تظهر أنها مغلقة في الوقت المخطط.`],
+  [/^(\d+) restaurants were left out because Qloo does not confirm all dietary needs for them\.$/, (m) => `استبعدنا ${m[1]} من المطاعم لأن Qloo لا يؤكد كل الاحتياجات الغذائية فيها.`],
+  [/^Only (\d+) restaurants? fit the budget, so some options share a dinner\.$/, (m) => `${m[1]} مطعم فقط ضمن الميزانية، لذا تتشارك بعض الخيارات نفس العشاء.`],
+  [/^(\d+) suggested venue\(s\) have no opening hours in Qloo; confirm before booking\.$/, (m) => `${m[1]} من الأماكن المقترحة بلا ساعات عمل في Qloo؛ تأكد قبل الحجز.`],
+  [/^Qloo returned no restaurants for this location\.$/, () => "لم يُرجع Qloo أي مطاعم لهذا الموقع."],
+  [/^Qloo returned no activity venues for this location\.$/, () => "لم يُرجع Qloo أي أماكن أنشطة لهذا الموقع."],
+  [/^No dinner \+ activity combination fits the budget per person\.$/, () => "لا توجد تركيبة عشاء + نشاط ضمن الميزانية للشخص."],
+  [/^Qloo did not report which locality it matched\.$/, () => "لم يحدد Qloo الموقع الذي طابقه."],
+  [/^Qloo found no artist named "(.+)"\.$/, (m) => `لم يجد Qloo فنانًا باسم "${m[1]}".`],
+  [/^Qloo has no venue-graph data for artist "(.+)" \((.+)'s pick\); it did not influence ranking\.$/, (m) => `لا توجد بيانات أماكن في Qloo للفنان "${m[1]}" (اختيار ${m[2]})؛ لم يؤثر على الترتيب.`],
+  [/^Unknown (cuisine|activity|dietary need) "(.+)" from (.+) was ignored\.$/, (m) => `تم تجاهل قيمة غير معروفة "${m[2]}" من ${m[3]}.`],
+  [/^LLM provider .+ failed .*; used rule-based narration\.$/, () => "تعذّر مزوّد النموذج اللغوي؛ استخدمنا الصياغة القائمة على القواعد."],
+];
+
+export function warningText(w: string, l: Lang): string {
+  if (l === "en") return w;
+  for (const [re, f] of WARNING_AR) {
+    const m = w.match(re);
+    if (m) return f(m);
+  }
+  return w;
+}
 
 export const t = (key: keyof typeof UI, l: Lang): string => UI[key][l];
 
@@ -135,5 +216,7 @@ export const RULE_LABEL: Record<string, Record<Lang, string>> = {
   R1: { en: "Cost per person exceeds the budget per person", ar: "التكلفة للشخص تتجاوز الميزانية للشخص" },
   R2: { en: "Total spend exceeds the manager-approval threshold", ar: "إجمالي الإنفاق يتجاوز حد موافقة المدير" },
   R3: { en: "Within budget and under the approval threshold", ar: "ضمن الميزانية وتحت حد الموافقة" },
+  M1: { en: "Manager approved spend above the threshold", ar: "وافق المدير على إنفاق فوق الحد" },
+  M2: { en: "Manager rejected spend above the threshold", ar: "رفض المدير إنفاقًا فوق الحد" },
 };
 export const ruleText = (rule: string, l: Lang) => RULE_LABEL[rule.slice(0, 2)]?.[l] ?? rule;

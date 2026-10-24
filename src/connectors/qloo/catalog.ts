@@ -97,6 +97,24 @@ export const CITIES: CityProfile[] = [
   { name: "Cairo", ar: "القاهرة", qlooQuery: "Cairo, Egypt", currency: "EGP", perUsd: 48, priceFactor: 0.45 },
 ];
 
+/**
+ * Cities users ask for that Qloo cannot serve at city level yet. Verified by probe: "Jeddah, Saudi Arabia" resolves to
+ * the whole country, so results would mix Riyadh, Dammam, etc. We refuse honestly instead of planning the wrong city.
+ */
+export const UNSUPPORTED_CITIES: { name: string; ar: string; reasonEn: string; reasonAr: string }[] = [
+  {
+    name: "Jeddah",
+    ar: "جدة",
+    reasonEn: "Qloo resolves Jeddah to all of Saudi Arabia, so venues would not be in Jeddah.",
+    reasonAr: "يطابق Qloo مدينة جدة مع السعودية كلها، فلن تكون الأماكن المقترحة في جدة.",
+  },
+];
+
+export function unsupportedCity(city: string) {
+  const c = city.trim().toLowerCase();
+  return UNSUPPORTED_CITIES.find((x) => x.name.toLowerCase() === c || x.ar === city.trim());
+}
+
 export function cityProfile(city: string): CityProfile {
   const c = CITIES.find((x) => x.name.toLowerCase() === city.trim().toLowerCase() || x.ar === city.trim());
   return c ?? { name: city, ar: city, qlooQuery: city, currency: "USD", perUsd: 1, priceFactor: 1 };
