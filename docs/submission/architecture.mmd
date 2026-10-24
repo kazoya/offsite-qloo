@@ -1,0 +1,34 @@
+flowchart TB
+  subgraph Browser["Browser — Next.js UI (/ar RTL, /en)"]
+    P["Planner page<br/>team tastes, city, date, start time,<br/>budget per person, dietary needs"]
+    A["Manager approvals page<br/>pending / approved / rejected"]
+  end
+
+  subgraph Server["Next.js server (Node, CPU only)"]
+    API["POST /api/plan<br/>validate + stable error codes"]
+    subgraph Agent["Planner agent (src/agent)"]
+      T["1. Group taste profile<br/>member votes → cuisines, activities, artist seeds"]
+      R["2. Rank venues<br/>0.5 Qloo affinity + coverage + fit + rating"]
+      H["3. Date + opening-hours check<br/>closed → left out, unknown → flagged"]
+      D["4. Dietary filter<br/>Qloo dietary tags, 'not confirmed' labelled"]
+      B["5. Budget estimate<br/>price_level → local currency"]
+      PO["6. Policy R1/R2/R3<br/>reject / manager approval / auto-approve"]
+      V["7. Shortlist 3 diverse options<br/>no repeated dinner"]
+    end
+    AU[("Plan audit log<br/>every decision + rule")]
+    L["Narration<br/>rule-based (default) or<br/>OpenAI-compatible LLM (optional)"]
+    AP["/api/approvals<br/>submit · approve · reject (409 on repeat)"]
+    ST[("Approvals store<br/>local JSON, append-only audit M1/M2")]
+    C[("Private response cache<br/>.cache/ — gitignored")]
+  end
+
+  Q["Qloo Hackathon API<br/>GET /search (artists → entities)<br/>GET /v2/insights (places, tags, location,<br/>signals, explainability, hours, price_level)"]
+
+  P -- plan request --> API --> T --> R --> H --> D --> B --> PO --> V
+  R <-- "timeout, retry,<br/>key in header only" --> C
+  C <--> Q
+  PO --> AU
+  V --> L --> P
+  AU --> P
+  P -- "Send to manager (R2 only)" --> AP --> ST
+  A <--> AP
