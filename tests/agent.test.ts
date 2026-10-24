@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { activityCost, AuditLog, buildGroupProfile, dinnerCost, evaluatePolicy, planOffsite, type PlanRequest } from "../src/agent";
+import { DIET_PENALTY_PER_NEED } from "../src/agent/planner";
 import { parsePlanRequest, ValidationError } from "../src/agent/validate";
 import { cityProfile } from "../src/connectors/qloo/catalog";
-import { DECISION_LABEL, money, renderReason, ruleText } from "../src/i18n";
+import { DECISION_LABEL, money, renderReason, ruleText, warningText } from "../src/i18n";
 import { narrateSafely, OpenAICompatibleProvider, parseNarration, providerFromEnv, RuleBasedProvider, type LLMProvider } from "../src/llm";
-import { ACTIVITY_VENUES, DINNERS, FakeQloo, SEED_FAIRUZ } from "./fixtures/qloo";
+import { ACTIVITY_VENUES, DINNERS, FakeQloo, place, SEED_FAIRUZ } from "./fixtures/qloo";
 
 const FIXED = () => new Date("2026-10-24T09:00:00.000Z");
 const team = [
@@ -98,22 +99,36 @@ describe("planner (fake Qloo, synthetic venues)", () => {
     expect(renderReason(artist, "ar")).toMatch(/65%/);
   });
 
-  it("marks unconfirmed dietary needs and ranks confirmed venues first", async () => {
+  it("never drops a venue for a missing dietary tag: keeps it, penalises it and says so", async () => {
     const plan = await planOffsite({ ...base, budgetPerPerson: 200 }, { qloo: new FakeQloo(), now: FIXED });
-    // D2 (sushi) has vegetarian but not halal -> must not outrank the fully confirmed D1/D3.
-    const dinnerOrder = plan.options.map((o) => o.dinner.place.entityId);
-    expect(dinnerOrder.indexOf("D2")).toBe(-1);
-    expect(plan.warnings.join()).toMatch(/left out.*dietary/);
+    // D2 (sushi) is tagged vegetarian but not halal: a missing tag is not proof it is not halal.
+    expect(plan.warnings.join()).toMatch(/kept, ranked lower and labelled "diet unconfirmed"/);
+    expect(plan.warnings.join()).not.toMatch(/left out.*dietary/);
+    for (const o of plan.options) {
+      expect(o.dinner.score.dietPenalty).toBeCloseTo(DIET_PENALTY_PER_NEED * o.dinner.dietaryUnconfirmed.length);
+    }
+    expect(plan.options[0]!.dinner.dietaryUnconfirmed).toEqual([]);
   });
 
-  it("keeps unconfirmed venues (flagged, ranked after confirmed ones) when too few confirmed venues exist", async () => {
-    const few = DINNERS.filter((d) => ["D1", "D2", "D5"].includes(d.entityId));
-    const plan = await planOffsite({ ...base, budgetPerPerson: 200 }, { qloo: new FakeQloo(few), now: FIXED });
-    const flags = plan.options.map((o) => o.dinner.dietaryUnconfirmed.length > 0);
-    expect(flags[0]).toBe(false);
-    expect(flags).toContain(true);
-    expect([...flags].sort()).toEqual(flags); // confirmed (false) strictly before unconfirmed (true)
-    expect(plan.options.find((o) => o.dinner.dietaryUnconfirmed.length > 0)!.dinner.reasons.map((r) => r.kind)).toContain("dietary_unconfirmed");
+  it("ranks a confirmed venue above its otherwise identical untagged twin, and labels the twin", async () => {
+    const twinTags = ["urn:tag:genre:place:restaurant:lebanese"];
+    const confirmed = place({ entityId: "T1", nameEn: "Twin Confirmed", affinity: 0.8, tags: [...twinTags, "urn:tag:dietary_option:qloo:halal", "urn:tag:dietary_option:qloo:vegetarian"] });
+    const untagged = place({ entityId: "T2", nameEn: "Twin Untagged", affinity: 0.8, tags: twinTags });
+    const plan = await planOffsite({ ...base, budgetPerPerson: 200 }, { qloo: new FakeQloo([untagged, confirmed]), now: FIXED });
+    const order = plan.options.map((o) => o.dinner.place.entityId);
+    expect(order).toContain("T2"); // kept, not dropped
+    expect(order.indexOf("T1")).toBeLessThan(order.indexOf("T2"));
+    const twin = plan.options.find((o) => o.dinner.place.entityId === "T2")!.dinner;
+    expect(twin.dietaryUnconfirmed.sort()).toEqual(["halal", "vegetarian"]);
+    expect(twin.reasons.map((r) => r.kind)).toContain("dietary_unconfirmed");
+    expect(warningText(plan.warnings.find((w) => w.includes("diet unconfirmed"))!, "ar")).toMatch(/غير مؤكد/);
+  });
+
+  it("still plans when no venue has dietary tags at all (flagged, never treated as 'not available')", async () => {
+    const noTags = DINNERS.map((d) => ({ ...d, tags: d.tags.filter((t) => !t.id.includes(":dietary_option:")) }));
+    const plan = await planOffsite({ ...base, budgetPerPerson: 200 }, { qloo: new FakeQloo(noTags), now: FIXED });
+    expect(plan.options.length).toBeGreaterThan(0);
+    expect(plan.options.every((o) => o.dinner.dietaryUnconfirmed.length === 2)).toBe(true);
   });
 
   it("applies the approval threshold and logs every decision, including rejected over-budget combos", async () => {

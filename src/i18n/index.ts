@@ -49,6 +49,7 @@ export const UI = {
   assumedPrice: { en: "Price level missing, assumed mid-range", ar: "مستوى السعر غير متوفر، افترضنا فئة متوسطة" },
   hoursOpen: { en: "Open at this time", ar: "مفتوح في هذا الوقت" },
   hoursUnknown: { en: "Hours unknown", ar: "ساعات العمل غير معروفة" },
+  dietUnconfirmed: { en: "Diet unconfirmed", ar: "النظام الغذائي غير مؤكد" },
   noArName: { en: "No Arabic name in Qloo; showing the English name", ar: "لا يوجد اسم عربي في Qloo؛ نعرض الاسم الإنجليزي" },
   noOptionsTitle: { en: "No plan fits yet", ar: "لا توجد خطة مناسبة بعد" },
   noOptionsHint: {
@@ -116,7 +117,7 @@ export const ERROR_TEXT: Record<ErrorCode, Record<Lang, string>> = {
 const WARNING_AR: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^(\d+) (?:restaurant was|restaurants were) left out because Qloo opening hours show them closed at the planned time\.$/, (m) => `استبعدنا ${m[1]} من المطاعم لأن ساعات العمل في Qloo تظهر أنها مغلقة في الوقت المخطط.`],
   [/^(\d+) (?:activity venue was|activity venues were) left out because Qloo opening hours show them closed at the planned time\.$/, (m) => `استبعدنا ${m[1]} من أماكن الأنشطة لأن ساعات العمل في Qloo تظهر أنها مغلقة في الوقت المخطط.`],
-  [/^(\d+) restaurants were left out because Qloo does not confirm all dietary needs for them\.$/, (m) => `استبعدنا ${m[1]} من المطاعم لأن Qloo لا يؤكد كل الاحتياجات الغذائية فيها.`],
+  [/^(\d+) restaurants? (?:has|have) no Qloo tag for every dietary need; they are kept, ranked lower and labelled "diet unconfirmed"\.$/, (m) => `${m[1]} من المطاعم بلا وسم في Qloo لكل الاحتياجات الغذائية؛ أبقيناها بترتيب أدنى مع علامة "النظام الغذائي غير مؤكد".`],
   [/^Only (\d+) restaurants? fit the budget, so some options share a dinner\.$/, (m) => `${m[1]} مطعم فقط ضمن الميزانية، لذا تتشارك بعض الخيارات نفس العشاء.`],
   [/^(\d+) suggested venue\(s\) have no opening hours in Qloo; confirm before booking\.$/, (m) => `${m[1]} من الأماكن المقترحة بلا ساعات عمل في Qloo؛ تأكد قبل الحجز.`],
   [/^Qloo returned no restaurants for this location\.$/, () => "لم يُرجع Qloo أي مطاعم لهذا الموقع."],

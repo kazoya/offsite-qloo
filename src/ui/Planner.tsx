@@ -74,6 +74,7 @@ function CandidateView({ c, plan, l }: { c: Candidate; plan: Plan; l: Lang }) {
           </span>
         )}
         {c.hours?.status === "unknown" && <span className="tag warn">{t("hoursUnknown", l)}</span>}
+        {c.dietaryUnconfirmed.length > 0 && <span className="tag warn">{t("dietUnconfirmed", l)}</span>}
       </div>
       <details>
         <summary>{t("whyQloo", l)}</summary>

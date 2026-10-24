@@ -66,6 +66,8 @@ export interface ScoreBreakdown {
   rating: number;
   /** Share of group-event fit tags present (work dinner, large group, private dining/events), 0..1. */
   teamFit: number;
+  /** Subtracted for each dietary need Qloo does not tag for this venue (missing tag != unavailable). */
+  dietPenalty: number;
   total: number;
 }
 

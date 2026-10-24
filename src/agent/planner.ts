@@ -51,8 +51,13 @@ const FIT_TAGS: Record<string, { en: string; ar: string; kinds: ("dinner" | "act
 };
 const HOTEL_TAG = "urn:tag:genre:place:hotel";
 const MAX_OPTIONS = 3;
-/** Only drop dietary-unconfirmed venues when enough confirmed ones remain to offer distinct dinners. */
-const MIN_DISTINCT_DINNERS = 3;
+/**
+ * A missing Qloo dietary tag is NOT evidence that a venue cannot serve the need, so such venues are never dropped.
+ * Each unconfirmed need subtracts this much from the venue score (capped), so confirmed venues rank higher and
+ * an unconfirmed one only makes the shortlist when it is clearly the better match. It is always labelled.
+ */
+export const DIET_PENALTY_PER_NEED = 0.15;
+const DIET_PENALTY_MAX = 0.3;
 /** Evening shape used for the opening-hours check: activity first, then dinner (minutes). */
 export const SCHEDULE = { defaultStart: "18:00", activityMinutes: 120, dinnerMinutes: 90 } as const;
 
@@ -179,8 +184,10 @@ function scoreCandidates(places: QlooPlace[], ctx: ScoreCtx): Candidate[] {
       if (fit.hits.length) {
         reasons.push({ kind: "team_fit", labelEn: fit.hits.map((h) => h.en).join(", "), labelAr: fit.hits.map((h) => h.ar).join("، ") });
       }
-      const total = WEIGHTS.qloo * aff + WEIGHTS.coverage * coverage + WEIGHTS.teamFit * fit.share + WEIGHTS.rating * rating;
-      const score: ScoreBreakdown = { qlooAffinity: aff, memberCoverage: coverage, rating, teamFit: fit.share, total };
+      const dietPenalty = Math.min(DIET_PENALTY_MAX, DIET_PENALTY_PER_NEED * unconfirmed.length);
+      const total =
+        WEIGHTS.qloo * aff + WEIGHTS.coverage * coverage + WEIGHTS.teamFit * fit.share + WEIGHTS.rating * rating - dietPenalty;
+      const score: ScoreBreakdown = { qlooAffinity: aff, memberCoverage: coverage, rating, teamFit: fit.share, dietPenalty, total };
       return {
         kind: ctx.kind,
         place: p,
@@ -195,11 +202,8 @@ function scoreCandidates(places: QlooPlace[], ctx: ScoreCtx): Candidate[] {
         reasons,
       };
     })
-    .sort((a, b) => {
-      // Dietary-confirmed venues always outrank unconfirmed ones; then by blended score; then name for determinism.
-      const d = a.dietaryUnconfirmed.length - b.dietaryUnconfirmed.length;
-      return d || b.score.total - a.score.total || a.place.nameEn.localeCompare(b.place.nameEn);
-    });
+    // Blended score (which already includes the dietary penalty), then name for determinism.
+    .sort((a, b) => b.score.total - a.score.total || a.place.nameEn.localeCompare(b.place.nameEn));
 }
 
 /** Normalised venue name used to collapse branches of one chain into a single candidate (best-ranked branch wins). */
@@ -375,30 +379,22 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   const cheapestActivity = activitiesU.length ? Math.min(...activitiesU.map((a) => a.costPerPerson)) : 0;
   const affordable = (d: Candidate) => d.costPerPerson + cheapestActivity <= req.budgetPerPerson;
 
-  // Dietary safety: when enough AFFORDABLE venues with Qloo-confirmed dietary tags exist, venues without confirmation
-  // are left out (a missing tag is not proof either way, so we never present them next to confirmed ones). When too few
-  // confirmed venues fit the budget, unconfirmed ones stay in (flagged, ranked after confirmed) so options stay distinct.
-  const confirmedDinners = dinnersU.filter((d) => d.dietaryUnconfirmed.length === 0);
-  let dinnerPool = dinnersU;
-  if (
-    needs.length > 0 &&
-    confirmedDinners.filter(affordable).length >= MIN_DISTINCT_DINNERS &&
-    confirmedDinners.length < dinnersU.length
-  ) {
-    dinnerPool = confirmedDinners;
+  // Dietary evidence: venues without Qloo tags for every need stay in the pool (penalised + labelled, never dropped).
+  const dinnerPool = dinnersU;
+  const unconfirmedCount = needs.length > 0 ? dinnersU.filter((d) => d.dietaryUnconfirmed.length > 0).length : 0;
+  if (unconfirmedCount > 0) {
     warnings.push(
-      `${dinnersU.length - confirmedDinners.length} restaurants were left out because Qloo does not confirm all dietary needs for them.`,
+      `${unconfirmedCount} restaurant${unconfirmedCount === 1 ? " has" : "s have"} no Qloo tag for every dietary need; they are kept, ranked lower and labelled "diet unconfirmed".`,
     );
   }
   // Shortlist affordable dinners first (so an expensive top-8 cannot crowd out every distinct option), plus the best
   // unaffordable ones so the audit log shows justified rejections.
   const topD = [...dinnerPool.filter(affordable).slice(0, 8), ...dinnerPool.filter((d) => !affordable(d)).slice(0, 3)];
-  const byConfirmedThenScore = (x: { d: Candidate; score: number }, y: { d: Candidate; score: number }) =>
-    Number(x.d.dietaryUnconfirmed.length > 0) - Number(y.d.dietaryUnconfirmed.length > 0) || y.score - x.score;
+  const byScore = (x: { score: number }, y: { score: number }) => y.score - x.score;
   const topA = activitiesU.slice(0, 8);
   const combos = topD
     .flatMap((d) => topA.map((a) => ({ d, a, score: COMBO.dinner * d.score.total + COMBO.activity * a.score.total })))
-    .sort(byConfirmedThenScore);
+    .sort(byScore);
 
   const label = (d: Candidate, a: Candidate) => `${d.place.nameEn} + ${a.place.nameEn}`;
   const money = (d: Candidate, a: Candidate) => {
@@ -418,7 +414,7 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   }
 
   // Rank follows the blended score (selection order only decides which combos make the shortlist).
-  picked.sort(byConfirmedThenScore);
+  picked.sort(byScore);
 
   // Audit every shortlisted decision plus the best rejected ones (so rejections are visible and justified).
   const options: PlanOption[] = picked.map((c, i) => {
