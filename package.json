@@ -15,7 +15,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "probe": "tsx --env-file=.env scripts/probe-coverage.ts",
-    "plan": "tsx --env-file=.env scripts/plan-cli.ts"
+    "plan": "tsx --env-file=.env scripts/plan-cli.ts",
+    "experiment": "tsx --env-file=.env scripts/experiment.ts"
   },
   "dependencies": {
     "next": "16.4.3",

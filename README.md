@@ -49,6 +49,26 @@ left out) and **Cheapest** (lowest estimated cost per person). If a lower-ranked
 shown alongside the ranking; it does not change it unless the team asks (feedback "not fair to X", below). Logic:
 `src/agent/fairness.ts`; tests: `tests/fairness.test.ts`.
 
+## Does it beat simpler rankers? (A/B/C experiment)
+
+We ran 24 synthetic teams (seed 20261024; 6 each in Amman, Dubai, Riyadh and Cairo) through three strategies:
+
+- **A**: the city's popular venues, with no taste signal.
+- **B**: Qloo affinity only.
+- **C**: the full planner.
+
+Results (means over teams, from Qloo's own tags):
+
+| | A | B | C |
+|---|---:|---:|---:|
+| Mean member coverage | 0.14 | 0.23 | 0.32 |
+| Members left out by every option | 0.49 | 0.38 | 0.18 |
+| Options within budget | 0.88 | 0.79 | 1.00 |
+
+C did **not** beat B on venues with unknown hours (0.24 vs 0.22). With tighter budgets, C proposed no plan for 21% of
+teams. There are no satisfaction scores; method, caveats and how to reproduce are in
+[docs/EXPERIMENT.md](docs/EXPERIMENT.md).
+
 ## Agent loop, feedback and replanning
 
 `/api/plan` runs a small agent loop (`src/agent/loop.ts`): understand the constraints → query Qloo → rank → check
