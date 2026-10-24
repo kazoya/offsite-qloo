@@ -1,34 +1,45 @@
 flowchart TB
-  subgraph Browser["Browser — Next.js UI (/ar RTL, /en)"]
-    P["Planner page<br/>team tastes, city, date, start time,<br/>budget per person, dietary needs"]
-    A["Manager approvals page<br/>pending / approved / rejected"]
+  subgraph Browser["Browser: Next.js UI (/ar RTL, /en)"]
+    P["Planner page<br/>demo company (synthetic, 12 people), team tastes,<br/>city, date, start time, budget, threshold"]
+    FB["Feedback controls<br/>budget · reject venue · not fair to X ·<br/>manager reject (reason required)"]
+    DV["What changed + decision log<br/>diff vs previous / original plan"]
+    A["Approvals page<br/>per-visitor demo sandbox (no PIN)"]
   end
 
-  subgraph Server["Next.js server (Node, CPU only)"]
-    API["POST /api/plan<br/>validate + stable error codes"]
-    subgraph Agent["Planner agent (src/agent)"]
-      T["1. Group taste profile<br/>member votes → cuisines, activities, artist seeds"]
-      R["2. Rank venues<br/>0.5 Qloo affinity + coverage + fit + rating"]
-      H["3. Date + opening-hours check<br/>closed → left out, unknown → flagged"]
-      D["4. Dietary filter<br/>Qloo dietary tags, 'not confirmed' labelled"]
-      B["5. Budget estimate<br/>price_level → local currency"]
-      PO["6. Policy R1/R2/R3<br/>reject / manager approval / auto-approve"]
-      V["7. Shortlist 3 diverse options<br/>no repeated dinner"]
+  subgraph Server["Next.js server on Vercel (Node, CPU only)"]
+    G["Guards: rate limit 10/min plan, 30/min approvals (per instance) ·<br/>body cap · validation · 25 s deadline"]
+    API["POST /api/plan { request, feedback[] }"]
+    subgraph Loop["Agent loop: runAgent (src/agent/loop.ts)"]
+      U["understand"] --> QQ["qloo_queries"] --> RK["rank"] --> BT["budget_time_check"] --> PR["propose"] --> EX["explain"] --> AG["approval_gate"]
+      AF["apply_feedback (replan pass)"] --> VF["verify_feedback<br/>met / not met"]
     end
-    AU[("Plan audit log<br/>every decision + rule")]
-    L["Narration<br/>rule-based (default) or<br/>OpenAI-compatible LLM (optional)"]
-    AP["/api/approvals<br/>submit · approve · reject (409 on repeat)"]
-    ST[("Approvals store<br/>local JSON, append-only audit M1/M2")]
-    C[("Private response cache<br/>.cache/ — gitignored")]
+    subgraph Planner["Planner (src/agent/planner.ts)"]
+      T["Group taste profile<br/>votes, exact-match artist seeds"]
+      R["Score: 0.5 Qloo affinity + 0.25 coverage<br/>+ 0.15 team fit + 0.1 rating"]
+      H["Hours, dietary labels, budget estimate"]
+      PO["Policy R1 / R2 / R3 + audit log"]
+      V["3 diverse options"]
+    end
+    F["Team Fairness Engine (src/agent/fairness.ts)<br/>per-member coverage, Best fit / Fairest / Cheapest,<br/>who is left out (reports; re-ranks only on 'not fair')"]
+    D["Plan diff (src/agent/diff.ts)"]
+    N["Narration: rule-based default,<br/>optional OpenAI-compatible LLM (text only)"]
+    AP["/api/approvals · /api/approvals/:id"]
+    SB[("Sandbox registry<br/>in-memory queue per cookie, 2 h TTL")]
+    RU["ReusingQloo: identical calls answered once per run"]
+    C[("Private response cache (gitignored / /tmp)")]
   end
 
-  Q["Qloo Hackathon API<br/>GET /search (artists → entities)<br/>GET /v2/insights (places, tags, location,<br/>signals, explainability, hours, price_level)"]
+  Q["Qloo Hackathon API<br/>GET /search (artists) · GET /v2/insights (places:<br/>tags, location, signals, explainability, hours, price_level)"]
 
-  P -- plan request --> API --> T --> R --> H --> D --> B --> PO --> V
-  R <-- "timeout, retry,<br/>key in header only" --> C
-  C <--> Q
-  PO --> AU
-  V --> L --> P
-  AU --> P
-  P -- "Send to manager (R2 only)" --> AP --> ST
+  P -- "plan" --> G --> API --> U
+  FB -- "same request + feedback" --> G
+  API --> AF
+  AF --> U
+  QQ --> T --> R --> H --> PO --> V --> F
+  QQ <--> RU <--> C <--> Q
+  F --> EX --> N
+  AG --> VF
+  VF --> D --> DV
+  AG -- "options over R2: awaiting_human" --> P
+  P -- "Send to manager (user click only)" --> AP --> SB
   A <--> AP

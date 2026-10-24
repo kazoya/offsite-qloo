@@ -51,19 +51,20 @@ shown alongside the ranking; it does not change it unless the team asks (feedbac
 
 ## Does it beat simpler rankers? (A/B/C experiment)
 
-We ran 24 synthetic teams (seed 20261024; 6 each in Amman, Dubai, Riyadh and Cairo) through three strategies:
+We ran 24 synthetic teams (seed 20261024; 6 each in Amman, Dubai, Riyadh and Cairo) through four strategies:
 
 - **A**: the city's popular venues, with no taste signal.
+- **A+** (ablation): the same venue pools as C, ranked by Qloo popularity only.
 - **B**: Qloo affinity only.
 - **C**: the full planner.
 
 Results (means over teams, from Qloo's own tags):
 
-| | A | B | C |
-|---|---:|---:|---:|
-| Mean member coverage | 0.14 | 0.23 | 0.32 |
-| Members left out by every option | 0.49 | 0.38 | 0.18 |
-| Options within budget | 0.88 | 0.79 | 1.00 |
+| | A | A+ | B | C |
+|---|---:|---:|---:|---:|
+| Mean member coverage | 0.14 | 0.22 | 0.23 | 0.32 |
+| Members left out by every option | 0.49 | 0.35 | 0.38 | 0.18 |
+| Options within budget | 0.88 | 0.76 | 0.79 | 1.00 |
 
 C did **not** beat B on venues with unknown hours (0.24 vs 0.22). With tighter budgets, C proposed no plan for 21% of
 teams. There are no satisfaction scores; method, caveats and how to reproduce are in
@@ -86,7 +87,8 @@ counts, decision, reason, time) returned as `plan.agent.log`. Send `feedback` wi
 The replan reuses the Qloo responses it already has, and `plan.agent.checks` says for each item whether it was met
 (an unmet request is reported, not hidden). The agent only proposes: it never books or pays, never sends anything to
 the approvals queue by itself, and every option over the R2 threshold waits for a manager. The response is the same
-Plan as before plus the `agent` field. (A UI for the log and the replan flow is planned; today it is API-only.)
+Plan as before plus the `agent` field. The UI shows the log, the feedback controls, the checks and a "What changed"
+diff (see the judge demo path below).
 
 ## Judge demo path (about 90–120 seconds)
 
@@ -101,7 +103,8 @@ Plan as before plus the `agent` field. (A UI for the log and the replan flow is 
    (reason required). Each action replans with all feedback so far and reuses Qloo answers.
 6. **What changed**: old vs new per option (venues, estimated cost per person, fairness), the feedback checks, and the
    agent decision log (collapsible steps with decision, reason and timing).
-7. **Approvals**: send an option over the threshold to the manager and approve it in your own demo sandbox.
+7. **Approvals**: send an option over the threshold to the manager and approve it in your own demo sandbox. With the
+   default 12 people every option stays under the threshold, so set **Headcount** to 20 before planning to see this step.
 
 ## Approval policy and audit log
 
@@ -167,6 +170,14 @@ included. Third-party dependencies: Next.js, React, TypeScript, Vitest, tsx (see
 
 Qloo response data is cached privately on the server (`.cache/`, gitignored) and is **not** published in this repo.
 Tests use synthetic fixtures with invented venues. `docs/QLOO_COVERAGE.md` holds aggregate statistics only.
+
+## Evidence pack
+
+- [docs/FEATURES.md](docs/FEATURES.md): every feature with its files, tests and an honest status.
+- [docs/TEST_REPORT.md](docs/TEST_REPORT.md): typecheck, test, build, experiment-rerun and production-path outputs.
+- [docs/BEFORE_AFTER.md](docs/BEFORE_AFTER.md): what changed from `17b958b` to `e2153eb`, measured.
+- [docs/QLOO_COVERAGE.md](docs/QLOO_COVERAGE.md): Qloo coverage per city and data limits.
+- [docs/submission/](docs/submission/): Devpost text, demo script, architecture diagram, publication checklist.
 
 ## License
 
