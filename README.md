@@ -6,8 +6,8 @@ filters them by **budget per person** and a **corporate approval policy**, and e
 Built for the Qloo Agentic Hackathon (Devpost).
 
 > Status: working core + bilingual UI + manager approvals + offline tests. Live demo: **https://offsite-qloo.vercel.app**
-> (deployed from `main`; the approval queue there is in-memory and resets, see below). Work in progress on branch
-> `feat/fairness-agent-loop` is not deployed. See "What was built during the Submission Period".
+> (deployed from `main`, including the fairness engine, agent loop, judge demo path and A/B/C experiment; approvals
+> there run in a per-visitor in-memory demo sandbox that resets, see below). See "What was built during the Submission Period".
 
 ## How Qloo is used (the centerpiece)
 
