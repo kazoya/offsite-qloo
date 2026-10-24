@@ -136,4 +136,6 @@ export interface Plan {
 export type Feedback =
   | { type: "budget"; budgetPerPerson: number; reason?: string }
   | { type: "reject_venue"; entityId: string; reason?: string }
-  | { type: "not_fair"; member: string; reason?: string };
+  | { type: "not_fair"; member: string; reason?: string }
+  /** A manager rejected one proposed dinner + activity pairing; the reason is required. */
+  | { type: "manager_reject"; dinnerId: string; activityId: string; reason: string };

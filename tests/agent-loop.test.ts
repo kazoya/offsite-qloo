@@ -107,6 +107,27 @@ describe("agent loop", () => {
     expect(plan.options.every((o) => o.costPerPerson <= base.budgetPerPerson)).toBe(true);
   });
 
+  it("replans after a manager rejects option 1: that pairing is gone, its venues may still appear elsewhere", async () => {
+    const first = await runAgent(base, [], { qloo: new FakeQloo(), now: FIXED });
+    const o1 = first.options[0]!;
+    const fb = { type: "manager_reject" as const, dinnerId: o1.dinner.place.entityId, activityId: o1.activity.place.entityId, reason: "Too far from the office" };
+    const re = await runAgent(base, [fb], { qloo: new FakeQloo(), now: FIXED });
+    expect(re.options.length).toBeGreaterThan(0);
+    expect(re.options.some((o) => o.dinner.place.entityId === fb.dinnerId && o.activity.place.entityId === fb.activityId)).toBe(false);
+    expect(re.agent.checks).toEqual([expect.objectContaining({ satisfied: true })]);
+    expect(re.agent.changed).toBe(true);
+    expect(re.agent.log.find((e) => e.step === "apply_feedback")!.inputs).toMatchObject({ managerRejectedOptions: 1 });
+    expect(re.agent.log.find((e) => e.step === "apply_feedback")!.reason).toContain("Too far from the office");
+  });
+
+  it("requires a reason when a manager rejects, and validates both ids", () => {
+    expect(() => parseFeedback([{ type: "manager_reject", dinnerId: "D1", activityId: "A1" }], base)).toThrow(ValidationError);
+    expect(() => parseFeedback([{ type: "manager_reject", dinnerId: "D1", activityId: "A 1", reason: "x" }], base)).toThrow(ValidationError);
+    expect(parseFeedback([{ type: "manager_reject", dinnerId: "D1", activityId: "A1", reason: " pricey " }], base)).toEqual([
+      { type: "manager_reject", dinnerId: "D1", activityId: "A1", reason: "pricey" },
+    ]);
+  });
+
   it("says so honestly when feedback cannot be met", async () => {
     const plan = await runAgent(base, [{ type: "budget", budgetPerPerson: 1 }], { qloo: new FakeQloo(), now: FIXED });
     expect(plan.options.length).toBe(0);

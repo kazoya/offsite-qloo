@@ -262,12 +262,13 @@ export async function runAgent(req: PlanRequest, feedback: Feedback[], deps: Age
     const baseline = plan.options.map(digest);
     const baselinePlan = plan;
     const next: PlanRequest = { ...req };
-    const constraints: Required<PlanConstraints> = { excludeEntityIds: [], prioritizeMembers: [] };
+    const constraints: Required<PlanConstraints> = { excludeEntityIds: [], prioritizeMembers: [], excludeCombos: [] };
     // A rejected venue is matched by id, and by chain name when it was one of the proposed options.
     const proposedById = new Map(baselinePlan.options.flatMap((o) => [o.dinner, o.activity]).map((c) => [c.place.entityId, c]));
     for (const f of feedback) {
       if (f.type === "budget") next.budgetPerPerson = f.budgetPerPerson;
       else if (f.type === "reject_venue") constraints.excludeEntityIds.push(f.entityId);
+      else if (f.type === "manager_reject") constraints.excludeCombos.push({ dinnerId: f.dinnerId, activityId: f.activityId });
       else if (!constraints.prioritizeMembers.includes(f.member)) constraints.prioritizeMembers.push(f.member);
     }
     pass = "replan";
@@ -278,6 +279,7 @@ export async function runAgent(req: PlanRequest, feedback: Feedback[], deps: Age
         budgetPerPerson: next.budgetPerPerson,
         previousBudgetPerPerson: req.budgetPerPerson,
         rejectedVenues: constraints.excludeEntityIds.length,
+        managerRejectedOptions: constraints.excludeCombos.length,
         prioritizedMembers: constraints.prioritizeMembers,
       },
       "Replan with the team's feedback as hard constraints.",
@@ -313,6 +315,10 @@ export async function runAgent(req: PlanRequest, feedback: Feedback[], deps: Age
           [o.dinner, o.activity].some((c) => c.place.entityId === f.entityId || (chainKey(c.place) && rejectedChains.has(chainKey(c.place)))),
         ).length;
         return { feedback: f, satisfied: still === 0, detail: still === 0 ? "The rejected venue is no longer in any option." : `Still in ${still} option(s).` };
+      }
+      if (f.type === "manager_reject") {
+        const still = plan.options.filter((o) => o.dinner.place.entityId === f.dinnerId && o.activity.place.entityId === f.activityId).length;
+        return { feedback: f, satisfied: still === 0, detail: still === 0 ? "The rejected pairing is not proposed again." : "The rejected pairing is still proposed." };
       }
       const top = plan.fairness?.options[0]?.members.find((m) => m.name === f.member);
       const covered = (top?.score ?? 0) > 0;

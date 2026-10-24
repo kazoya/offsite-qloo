@@ -39,6 +39,8 @@ export interface PlanConstraints {
   excludeEntityIds?: string[];
   /** Members a reviewer said the plan was unfair to: options covering them are ranked first when any fit. */
   prioritizeMembers?: string[];
+  /** Dinner + activity pairs a manager rejected: that exact pairing is not proposed again (each venue may still be). */
+  excludeCombos?: { dinnerId: string; activityId: string }[];
 }
 
 /**
@@ -463,8 +465,10 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps, constrain
   }
   const coversPrio = (c: { d: Candidate; a: Candidate }) =>
     prio.every((m) => c.d.membersCovered.includes(m) || c.a.membersCovered.includes(m));
+  const rejectedPairs = new Set((constraints.excludeCombos ?? []).map((c) => `${c.dinnerId}|${c.activityId}`));
   const combos = topD
     .flatMap((d) => topA.map((a) => ({ d, a, score: COMBO.dinner * d.score.total + COMBO.activity * a.score.total })))
+    .filter((c) => !rejectedPairs.has(`${c.d.place.entityId}|${c.a.place.entityId}`))
     .sort(byScore);
 
   const label = (d: Candidate, a: Candidate) => `${d.place.nameEn} + ${a.place.nameEn}`;

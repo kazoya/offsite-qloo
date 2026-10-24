@@ -100,8 +100,18 @@ export function parseFeedback(raw: unknown, req: PlanRequest): Feedback[] {
         if (typeof o.member !== "string" || !names.has(o.member)) throw new ValidationError(`feedback[${i}].member must be one of the team's names.`);
         return withReason({ type: "not_fair" as const, member: o.member });
       }
+      case "manager_reject": {
+        for (const k of ["dinnerId", "activityId"] as const) {
+          const id = o[k];
+          if (typeof id !== "string" || id.length === 0 || id.length > 80 || !/^[\w:-]+$/.test(id)) {
+            throw new ValidationError(`feedback[${i}].${k} must be a Qloo entity id.`);
+          }
+        }
+        if (!reason) throw new ValidationError(`feedback[${i}].reason is required when a manager rejects an option.`);
+        return { type: "manager_reject" as const, dinnerId: o.dinnerId as string, activityId: o.activityId as string, reason };
+      }
       default:
-        throw new ValidationError(`feedback[${i}].type must be budget, reject_venue or not_fair.`);
+        throw new ValidationError(`feedback[${i}].type must be budget, reject_venue, not_fair or manager_reject.`);
     }
   });
 }
