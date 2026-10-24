@@ -109,5 +109,5 @@ invented venues. The coverage document in the repo contains aggregate statistics
 
 ## Links (to fill in before submitting)
 
-* Demo: *(hosted URL: Devpost requires an externally hosted, publicly reachable demo)*
+* Demo: https://offsite-qloo.vercel.app (English: https://offsite-qloo.vercel.app/en, Arabic: https://offsite-qloo.vercel.app/ar). Approve/reject on the hosted demo needs the manager PIN; the hosted approvals queue is in-memory and resets when the server instance restarts.
 * Code: https://github.com/kazoya/offsite-qloo *(must be made public, MIT license visible in About)*
