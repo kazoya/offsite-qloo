@@ -14,7 +14,7 @@ if (langIdx >= 0) req.language = args[langIdx + 1] === "ar" ? "ar" : "en";
 const qloo = QlooClient.fromEnv();
 const plan = await planOffsite(req, { qloo, llm: providerFromEnv() });
 const l = req.language;
-console.log(plan.overview, `\n[locality: ${plan.locality}] [narration: ${plan.provider}] [qloo http calls: ${plan.qlooHttpCalls}]\n`);
+console.log(plan.overview, `\n[locality: ${plan.locality}] [narration: ${plan.provider}] [qloo http calls: ${plan.qlooHttpCalls}] [schedule: ${JSON.stringify(plan.schedule)}]\n`);
 for (const o of plan.options) {
   console.log(`#${o.rank} ${DECISION_LABEL[o.decision][l]}  ${money(o.costPerPerson, plan.currency, l)}/pp  ${money(o.costTotal, plan.currency, l)} total  score=${o.score.toFixed(2)}`);
   for (const c of [o.dinner, o.activity]) {

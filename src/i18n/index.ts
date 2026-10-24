@@ -61,6 +61,16 @@ const list = (names: string[], l: Lang) =>
 
 const lab = (r: Reason, l: Lang) => (l === "ar" ? (r.labelAr ?? r.labelEn ?? "") : (r.labelEn ?? r.labelAr ?? ""));
 
+export const WEEKDAY_LABEL: Record<number, Record<Lang, string>> = {
+  0: { en: "Sunday", ar: "الأحد" },
+  1: { en: "Monday", ar: "الاثنين" },
+  2: { en: "Tuesday", ar: "الثلاثاء" },
+  3: { en: "Wednesday", ar: "الأربعاء" },
+  4: { en: "Thursday", ar: "الخميس" },
+  5: { en: "Friday", ar: "الجمعة" },
+  6: { en: "Saturday", ar: "السبت" },
+};
+
 /** Deterministic rendering of a structured reason. No LLM involved. */
 export function renderReason(r: Reason, l: Lang): string {
   const who = list(r.members ?? [], l);
@@ -95,6 +105,22 @@ export function renderReason(r: Reason, l: Lang): string {
       return l === "ar"
         ? "لا يوجد مستوى سعر لدى Qloo لهذا المكان؛ استخدمنا تقديراً افتراضياً"
         : "Qloo has no price level for this venue; we used a default estimate";
+    case "hours_open": {
+      const day = WEEKDAY_LABEL[r.value ?? -1]?.[l] ?? "";
+      const span = lab(r, l).trim();
+      return l === "ar"
+        ? `مفتوح يوم ${day} خلال ${span} بحسب ساعات العمل في Qloo`
+        : `Open on ${day} during ${span} per Qloo opening hours`;
+    }
+    case "hours_unknown":
+      if (r.value === 1) {
+        return l === "ar"
+          ? "يُظهر Qloo هذا المكان مغلقًا كل أيام الأسبوع، وهذا غالبًا نقص في البيانات؛ تأكد من الدوام قبل الحجز"
+          : "Qloo lists this venue as closed every day, which looks like missing data; confirm hours before booking";
+      }
+      return l === "ar"
+        ? "ساعات العمل غير معروفة لدى Qloo، تأكد من الدوام قبل الحجز"
+        : "Opening hours unknown in Qloo, confirm before booking";
     case "fallback_category":
       return l === "ar"
         ? `لم يطابق أي نشاط مفضّل مكانًا في هذه المدينة، فاخترنا فئة أوسع: ${x}`

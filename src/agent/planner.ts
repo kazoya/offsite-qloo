@@ -8,6 +8,7 @@ import {
 import type { InsightsRequest, InsightsResult, QlooPlace, QlooSearchResult } from "../connectors/qloo/types";
 import { narrateSafely, RuleBasedProvider, type LLMProvider } from "../llm";
 import { activityCost, defaultApprovalThreshold, dinnerCost } from "./budget";
+import { checkHours, fmtClock as fmt, parseClock, type HoursCheck } from "./hours";
 import { AuditLog } from "./policy";
 import { buildGroupProfile, type ArtistSeed, type GroupProfile, type Vote } from "./taste";
 import type { Candidate, Plan, PlanOption, PlanRequest, Reason, ScoreBreakdown } from "./types";
@@ -52,6 +53,8 @@ const HOTEL_TAG = "urn:tag:genre:place:hotel";
 const MAX_OPTIONS = 3;
 /** Only drop dietary-unconfirmed venues when enough confirmed ones remain to offer distinct dinners. */
 const MIN_DISTINCT_DINNERS = 3;
+/** Evening shape used for the opening-hours check: activity first, then dinner (minutes). */
+export const SCHEDULE = { defaultStart: "18:00", activityMinutes: 120, dinnerMinutes: 90 } as const;
 
 const tagIds = (p: QlooPlace) => new Set(p.tags.map((t) => t.id));
 
@@ -242,6 +245,29 @@ export function pickDiverse<T extends Combo>(list: T[], max: number): T[] {
   return picked;
 }
 
+
+/** Annotates candidates with an hours check, drops the ones closed in their slot, and keeps "unknown" (flagged). */
+function applyHours(cands: Candidate[], date: string, start: number, minutes: number) {
+  let excluded = 0;
+  const kept: Candidate[] = [];
+  let weekday = checkHours(undefined, date, start, minutes).weekday;
+  for (const c of cands) {
+    const h: HoursCheck = checkHours(c.place.hours, date, start, minutes);
+    weekday = h.weekday;
+    if (h.status === "closed_day" || h.status === "closed_at_time") {
+      excluded++;
+      continue;
+    }
+    const reason: Reason =
+      h.status === "open"
+        ? { kind: "hours_open", labelEn: `${h.from}–${h.to}`, labelAr: `${h.from}–${h.to}`, value: WEEKDAY_INDEX[h.weekday] }
+        : { kind: "hours_unknown", value: h.allWeekClosed ? 1 : 0 };
+    kept.push({ ...c, hours: h, reasons: [...c.reasons, reason] });
+  }
+  return { kept, excluded, weekday };
+}
+const WEEKDAY_INDEX: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+
 function humanWarnings(raw: string[], artists: ArtistSeed[]): string[] {
   return raw.map((w) => {
     const hit = artists.find((a) => w.includes(a.entityId));
@@ -329,6 +355,19 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
     needs: [],
   });
 
+  // ---- Opening hours: drop venues Qloo says are closed in their slot; flag unknown hours honestly ------
+  const startMin = parseClock(req.startTime ?? SCHEDULE.defaultStart) ?? parseClock(SCHEDULE.defaultStart)!;
+  const dinnerStart = startMin + SCHEDULE.activityMinutes;
+  const actOpen = applyHours(activities, req.date, startMin, SCHEDULE.activityMinutes);
+  const dinOpen = applyHours(dinners, req.date, dinnerStart, SCHEDULE.dinnerMinutes);
+  for (const [n, one, many] of [[dinOpen.excluded, "restaurant", "restaurants"], [actOpen.excluded, "activity venue", "activity venues"]] as const) {
+    if (n > 0) warnings.push(`${n} ${n === 1 ? `${one} was` : `${many} were`} left out because Qloo opening hours show them closed at the planned time.`);
+  }
+  const scoredDinnerCount = dinners.length;
+  const scoredActivityCount = activities.length;
+  dinners.splice(0, dinners.length, ...dinOpen.kept);
+  activities.splice(0, activities.length, ...actOpen.kept);
+
   // ---- Combine, apply budget + approval policy ----------------------------------------------------
   // Branches of one chain (same name, different entity ids) count as one venue, so options stay distinct.
   const dinnersU = dedupeByName(dinners);
@@ -414,8 +453,12 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
     });
   }
 
-  if (dinners.length === 0) warnings.push("Qloo returned no restaurants for this location.");
-  if (activities.length === 0) warnings.push("Qloo returned no activity venues for this location.");
+  if (scoredDinnerCount === 0) warnings.push("Qloo returned no restaurants for this location.");
+  if (scoredActivityCount === 0) warnings.push("Qloo returned no activity venues for this location.");
+  const unknownHours = new Set(
+    options.flatMap((o) => [o.dinner, o.activity]).filter((c) => c.hours?.status === "unknown").map((c) => c.place.entityId),
+  ).size;
+  if (unknownHours > 0) warnings.push(`${unknownHours} suggested venue(s) have no opening hours in Qloo; confirm before booking.`);
   if (options.length === 0 && dinners.length > 0 && activities.length > 0) {
     warnings.push("No dinner + activity combination fits the budget per person.");
   }
@@ -442,6 +485,11 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
     seeds,
     provider: "rule-based",
     qlooHttpCalls: qloo.httpCalls - startCalls,
+    schedule: {
+      weekday: actOpen.weekday,
+      activity: { from: fmt(startMin), to: fmt(startMin + SCHEDULE.activityMinutes) },
+      dinner: { from: fmt(dinnerStart), to: fmt(dinnerStart + SCHEDULE.dinnerMinutes) },
+    },
   };
 
   const n = await narrateSafely(deps.llm ?? new RuleBasedProvider(), plan, req.language);

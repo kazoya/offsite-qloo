@@ -38,6 +38,12 @@ export function parsePlanRequest(body: unknown): PlanRequest {
   const language: Lang = b.language === "ar" ? "ar" : "en";
 
   const req: PlanRequest = { team, city, budgetPerPerson: budget, headcount, date, language };
+  if (b.startTime !== undefined && b.startTime !== "") {
+    const st = str(b.startTime, 5);
+    const m = st.match(/^(\d{2}):(\d{2})$/);
+    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) throw new ValidationError("startTime must be HH:MM (24h).");
+    req.startTime = st;
+  }
   if (b.approvalThreshold !== undefined && b.approvalThreshold !== "") {
     const t = Number(b.approvalThreshold);
     if (!Number.isFinite(t) || t < 0) throw new ValidationError("approvalThreshold must be >= 0.");

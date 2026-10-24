@@ -51,7 +51,7 @@ subject, decision, rule and detail, and shown in the UI.
 
 * Activity venues carry no price in Qloo; activity costs and restaurant prices (price_level → currency) are **our
   estimates**, labelled as assumptions in the output.
-* Qloo has no opening-hours/availability check in this build; the date field does not affect results yet.
+* Opening hours: the date + start time are checked against Qloo `hours` (activity 2 h from the start time, then dinner 90 min). Venues Qloo shows closed in their slot are left out; venues without hours are kept and labelled "hours unknown". Hours are not live availability or reservations, and public holidays are not modelled.
 * Dietary tags are a presence signal: "not confirmed" is not "unavailable" and never a safety statement about allergies.
 * City coverage: Amman, Dubai, Riyadh, Cairo. Jeddah resolves to the whole country in Qloo, so it is unsupported.
 * Arabic venue names are rare in Qloo data (0–22 %), so many venue names stay in Latin script in the Arabic UI.

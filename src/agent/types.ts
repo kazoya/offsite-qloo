@@ -1,4 +1,5 @@
 import type { QlooPlace } from "../connectors/qloo/types";
+import type { HoursCheck } from "./hours";
 
 export type Lang = "ar" | "en";
 
@@ -21,8 +22,10 @@ export interface PlanRequest {
   /** Budget per person for dinner + activity, in the city's local currency. */
   budgetPerPerson: number;
   headcount: number;
-  /** ISO date (yyyy-mm-dd). */
+  /** ISO date (yyyy-mm-dd), local to the city. */
   date: string;
+  /** Local start time "HH:MM" (activity first, then dinner). Defaults to 18:00. */
+  startTime?: string;
   language: Lang;
   /** Total event spend (local currency) above which manager approval is required. */
   approvalThreshold?: number;
@@ -39,7 +42,9 @@ export type ReasonKind =
   | "price_known"
   | "price_assumed"
   | "fallback_category"
-  | "team_fit";
+  | "team_fit"
+  | "hours_open"
+  | "hours_unknown";
 
 /** Structured reason; rendered to text by the i18n layer (rule-based) or narrated by an LLM. */
 export interface Reason {
@@ -77,6 +82,8 @@ export interface Candidate {
   dietaryUnconfirmed: string[];
   score: ScoreBreakdown;
   reasons: Reason[];
+  /** Opening-hours check for this venue's slot in the evening (Qloo hours). */
+  hours?: HoursCheck;
 }
 
 export type Decision = "auto_approved" | "needs_manager_approval" | "rejected_over_budget";
@@ -113,5 +120,7 @@ export interface Plan {
   seeds: { kind: "cuisine" | "activity" | "artist"; labelEn: string; labelAr?: string; members: string[] }[];
   provider: string;
   qlooHttpCalls: number;
+  /** Evening schedule the hours check used (local time in the city). */
+  schedule?: { weekday: string; activity: { from: string; to: string }; dinner: { from: string; to: string } };
   overview?: string;
 }
