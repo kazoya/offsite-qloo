@@ -10,7 +10,7 @@ import { narrateSafely, RuleBasedProvider, type LLMProvider } from "../llm";
 import { activityCost, defaultApprovalThreshold, dinnerCost } from "./budget";
 import { checkHours, fmtClock as fmt, parseClock, type HoursCheck } from "./hours";
 import { assessFairness } from "./fairness";
-import { exactNameMatch } from "./names";
+import { artistSpellings, exactMatchAny } from "./names";
 import { AuditLog } from "./policy";
 import { buildGroupProfile, type ArtistSeed, type GroupProfile, type Vote } from "./taste";
 import type { Candidate, Plan, PlanOption, PlanRequest, Reason, ScoreBreakdown } from "./types";
@@ -62,6 +62,8 @@ export const DIET_PENALTY_PER_NEED = 0.15;
 const DIET_PENALTY_MAX = 0.3;
 /** How many artist search hits to compare against the typed name. */
 const ARTIST_SEARCH_TAKE = 5;
+/** Max search queries per typed artist (typed name + alternate spellings). */
+const MAX_ARTIST_SPELLINGS = 3;
 /** Evening shape used for the opening-hours check: activity first, then dinner (minutes). */
 export const SCHEDULE = { defaultStart: "18:00", activityMinutes: 120, dinnerMinutes: 90 } as const;
 
@@ -87,8 +89,17 @@ async function resolveArtists(qloo: QlooLike, req: PlanRequest, warnings: string
       any = true;
       try {
         // Never trust the top search hit blindly (e.g. "X" can return a collaboration "Y & X" first).
-        const hits = await qloo.searchEntities({ query: name, types: ["urn:entity:artist"], take: ARTIST_SEARCH_TAKE });
-        const hit = exactNameMatch(name, hits);
+        // Try the typed name first, then spellings the input itself suggests (both scripts typed, or a known
+        // Latin/Arabic equivalent). Every hit must still equal one of those spellings exactly.
+        const spellings = artistSpellings(name);
+        let hits: QlooSearchResult[] = [];
+        let hit: QlooSearchResult | undefined;
+        for (const [k, query] of spellings.slice(0, MAX_ARTIST_SPELLINGS).entries()) {
+          const found = await qloo.searchEntities({ query, types: ["urn:entity:artist"], take: ARTIST_SEARCH_TAKE });
+          if (k === 0 || hits.length === 0) hits = found;
+          hit = exactMatchAny(spellings, found);
+          if (hit) break;
+        }
         if (hit && !seeds.some((s) => s.entityId === hit.entityId)) {
           seeds.push({ entityId: hit.entityId, name: hit.name, member: req.team[i]!.name });
         } else if (!hit && hits.length > 0) {

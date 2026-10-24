@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { planOffsite, type PlanRequest } from "../src/agent";
-import { exactNameMatch, normalizeName } from "../src/agent/names";
+import { artistSpellings, exactMatchAny, exactNameMatch, normalizeName } from "../src/agent/names";
 import { warningText } from "../src/i18n";
 import { FakeQloo } from "./fixtures/qloo";
 
@@ -52,5 +52,42 @@ describe("planner artist resolution", () => {
     expect(signal).toContain("C3");
     expect(signal).not.toContain("C1");
     expect(signal).not.toContain("C9");
+  });
+
+  it("falls back to an alternate spelling the input suggests, keeping the exact-match rule", async () => {
+    const q = new FakeQloo();
+    q.searchHits = {
+      "Test Star / تجربة نجم": [hit("X0", "Someone & Test Star")],
+      "Test Star": [hit("X1", "Marshmello & Test Star")],
+      "تجربة نجم": [hit("X2", "تجربة نجم"), hit("X3", "تجربة نجوم")],
+    };
+    const plan = await planOffsite(req(["Test Star / تجربة نجم"]), { qloo: q, now: FIXED });
+    expect(plan.seeds.filter((s) => s.kind === "artist").map((s) => s.labelEn)).toEqual(["تجربة نجم"]);
+    expect(plan.warnings.join()).not.toMatch(/no exact artist match/);
+    expect(q.requests.flatMap((r) => r.signalEntities ?? [])).not.toContain("X1");
+  });
+
+  it("uses a known Latin/Arabic equivalent, but still skips when no spelling matches exactly", async () => {
+    const q = new FakeQloo();
+    q.searchHits = {
+      "Amr Diab": [hit("C1", "Marshmello & Amr Diab")],
+      "عمرو دياب": [hit("AR1", "عمرو دياب")],
+      "Nancy Ajram": [hit("N1", "Nancy Ajram Tribute")],
+      "نانسي عجرم": [hit("N2", "نانسي عجرم وأصدقاء")],
+    };
+    const plan = await planOffsite(req(["Amr Diab", "Nancy Ajram"]), { qloo: q, now: FIXED });
+    const seeds = plan.seeds.filter((s) => s.kind === "artist").map((s) => s.labelEn);
+    expect(seeds).toEqual(["عمرو دياب"]);
+    expect(plan.warnings).toContain('Qloo has no exact artist match for "Nancy Ajram" (closest: "Nancy Ajram Tribute"); it was skipped.');
+  });
+});
+
+describe("alternate spellings", () => {
+  it("lists the typed name first, then typed parts, then known equivalents, without duplicates", () => {
+    expect(artistSpellings("Fairuz")).toEqual(["Fairuz", "فيروز", "Fairouz", "Fayrouz"]);
+    expect(artistSpellings("fairouz")[0]).toBe("fairouz");
+    expect(artistSpellings("Test A / Test B")).toEqual(["Test A / Test B", "Test A", "Test B"]);
+    expect(artistSpellings("Unknown Test Band")).toEqual(["Unknown Test Band"]);
+    expect(exactMatchAny(artistSpellings("Amr Diab"), [hit("Z", "Amr Mostafa"), hit("Y", "عمرو دياب")])?.entityId).toBe("Y");
   });
 });
