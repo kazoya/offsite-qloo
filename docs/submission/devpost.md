@@ -75,7 +75,7 @@ committed results are byte-identical on rerun. Details: `docs/EXPERIMENT.md`.
   rewrites the explanation text and never changes ranking or policy; on failure it falls back.
 * **Approvals:** on the hosted demo, each visitor gets a private in-memory sandbox (cookie-scoped, 2-hour expiry, no
   PIN). A shared mode with a manager PIN exists for self-hosting (`APPROVALS_MODE=shared`).
-* **Tests:** 148 offline Vitest tests in 15 files, using invented venues and a mocked Qloo (no key, no network). CPU
+* **Tests:** 149 offline Vitest tests in 15 files, using invented venues and a mocked Qloo (no key, no network). CPU
   only, no GPU or model hosting.
 
 ## Challenges we ran into
@@ -122,8 +122,8 @@ committed results are byte-identical on rerun. Details: `docs/EXPERIMENT.md`.
 * The hosted approvals sandbox is in memory and resets when a server instance restarts; there is no sign-in.
 * Rate limits are per server instance, not global.
 * Coverage: Amman, Dubai, Riyadh and Cairo; Riyadh and Cairo resolve to a region, so venues can be far apart.
-* Arabic venue names are rare in Qloo data (0–22 %), and a few labels (some validation messages, the narration
-  provider name) are still English in the Arabic UI.
+* Arabic venue names are rare in Qloo data (0–22 %), and a few labels (some validation messages) are still English
+  in the Arabic UI.
 * The experiment uses synthetic teams and Qloo's own tags; it does not measure real satisfaction.
 
 ## Built with
@@ -140,8 +140,8 @@ invented venues. The coverage document in the repo contains aggregate statistics
 No account, PIN or key is needed, and the demo is free to use.
 
 1. Open https://offsite-qloo.vercel.app/en (Arabic: https://offsite-qloo.vercel.app/ar).
-2. Click **Load demo company (12 people)**. The team is synthetic. Set **Headcount** to **20** so some options go
-   above the approval threshold (with 12 people every option stays under it).
+2. Click **Load demo company (20 people)**. The team is synthetic. It plans for 20 people, so some options go above
+   the approval threshold and can be sent to the manager.
 3. Click **Plan the offsite**. Open **Why Qloo picked this** and look at **Fairness and fit**.
 4. Under **Give the agent feedback**, set a new budget (for example 25) and click **Replan with this budget**, or
    mark an option "not fair" to a member, or reject it as the manager with a reason.
@@ -149,7 +149,7 @@ No account, PIN or key is needed, and the demo is free to use.
 6. Click **Send to manager** on an option marked "Needs manager approval", open the approvals page, and approve or
    reject. The queue is a private sandbox for your browser; no PIN is needed and nothing is booked or paid.
 
-Offline: `npm install && npm test` runs all 148 tests without a key. See the README for running the app with your own Qloo
+Offline: `npm install && npm test` runs all 149 tests without a key. See the README for running the app with your own Qloo
 hackathon key.
 
 ## Links

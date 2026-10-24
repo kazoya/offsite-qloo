@@ -24,7 +24,7 @@ export const D = {
   step5: { en: "Give feedback", ar: "أعطِ ملاحظات" },
   step6: { en: "See what changed", ar: "شاهد ما تغيّر" },
   step7: { en: "Approve in the sandbox", ar: "وافق في الصندوق التجريبي" },
-  loadDemo: { en: "Load demo company (12 people)", ar: "حمّل الشركة التجريبية (12 شخصًا)" },
+  loadDemo: { en: "Load demo company (20 people)", ar: "حمّل الشركة التجريبية (20 شخصًا)" },
   demoLoaded: { en: "Demo company loaded", ar: "تم تحميل الشركة التجريبية" },
   synthetic: { en: "Synthetic team: invented names and tastes.", ar: "فريق اصطناعي: أسماء وأذواق مُختلَقة." },
   editMembers: { en: "Edit members", ar: "عدّل الأعضاء" },

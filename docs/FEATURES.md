@@ -1,7 +1,8 @@
 # Features: what exists, where, and how it is tested
 
 Snapshot of `main` at `e2153eb` (2026-10-24, Asia/Amman). Test counts come from `npx vitest run --reporter=verbose`
-on that commit (15 files, 148 tests, all passing). "Live" means checked against the production deployment
+on that commit (15 files, 148 tests, all passing). The later fix pass on `fix/demo-polish` (demo headcount 20,
+Arabic provider label, favicon) brings it to 15 files and 149 tests; see TEST_REPORT section 8. "Live" means checked against the production deployment
 https://offsite-qloo.vercel.app on 2026-10-24 (see [TEST_REPORT.md](TEST_REPORT.md)).
 
 Status key:
@@ -32,11 +33,11 @@ Status key:
 | Feature | Implementing files | Tests (count) | Status | Notes |
 |---|---|---|---|---|
 | Team Fairness Engine: per-member satisfaction, Best fit / Fairest / Cheapest labels, who is left out | `src/agent/fairness.ts`, `src/ui/DemoParts.tsx` | `tests/fairness.test.ts` (8) | works-and-tested | Reports only; it re-ranks only when the user sends `not_fair`. Live: meter, labels and "why option N" card shown. |
-| Agent loop `runAgent` with decision log (understand → qloo_queries → rank → budget_time_check → propose → explain → approval_gate) | `src/agent/loop.ts`, `src/i18n/decisionLog.ts` | `tests/agent-loop.test.ts` (24), `tests/decision-log-ar.test.ts` (2) | works-and-tested | Live: 16 log steps after one replan; Arabic log heading shown. |
+| Agent loop `runAgent` with decision log (understand → qloo_queries → rank → budget_time_check → propose → explain → approval_gate) | `src/agent/loop.ts`, `src/i18n/decisionLog.ts` | `tests/agent-loop.test.ts` (24), `tests/decision-log-ar.test.ts` (3) | works-and-tested | Live: 16 log steps after one replan; Arabic log heading shown. |
 | Feedback replanning: `budget`, `reject_venue`, `not_fair`, `manager_reject` (reason required, else 400) | `src/agent/loop.ts`, `app/api/plan/route.ts`, `src/ui/Planner.tsx` | `tests/agent-loop.test.ts` | works-and-tested | Live: budget and manager_reject verified; replan made 0 extra Qloo calls. `reject_venue` and `not_fair` verified offline only. |
 | Feedback verification (met / not met per request) | `src/agent/loop.ts` | `tests/agent-loop.test.ts` | works-and-tested | Unmet requests are reported, not hidden. Live: 1 met, 0 not met. |
 | Plan diff ("What changed" vs previous and original plan) | `src/agent/diff.ts`, `src/ui/DemoParts.tsx` | `tests/diff.test.ts` (7) | works-and-tested | |
-| Synthetic demo company (Nimbus Analytics, 12 invented members, Amman, 30 JOD) | `src/demo/company.ts`, `src/i18n/demo.ts` | none directly (used by UI) | partial | Verified live. At headcount 12 no option crosses R2, so step 7 needs headcount 20 (see Known issues). |
+| Synthetic demo company (Nimbus Analytics, 12 invented member profiles, headcount 20, Amman, 30 JOD) | `src/demo/company.ts`, `src/i18n/demo.ts` | `tests/diff.test.ts` (1) | works-and-tested | Headcount defaults to 20, so options cross R2 and step 7 has "Send to manager" buttons with no form change (fix pass, TEST_REPORT section 8). |
 | Judge demo path UI (one-click demo, fairness meter, feedback buttons, log, diff) | `src/ui/Planner.tsx`, `src/ui/DemoParts.tsx`, `app/[lang]/page.tsx` | no component tests | partial | Verified by a headless-browser run of all 7 steps; no automated UI test in the repo. |
 
 ## Approvals
@@ -55,7 +56,7 @@ Status key:
 | Rate limits (plan 10/min, approvals 30/min), body caps (32 KB / 16 KB) | `src/api/guard.ts` | `tests/guard.test.ts` (7) | partial | Live 429 confirmed on one connection. In-memory, per server instance and per client IP, so not a global limit. |
 | Planner deadline (25 s, clean 504) | `src/agent/deadline.ts`, `app/api/plan/route.ts` | `tests/guard.test.ts`, `tests/agent-loop.test.ts` | works-and-tested | |
 | Typed error states (Qloo unavailable with retry, no plan fits, validation) | `src/api/errors.ts`, `src/ui/Planner.tsx` | `tests/ui-errors.test.ts` (5) | works-and-tested | Some validation messages are English-only. |
-| Bilingual UI, Arabic RTL (`/ar`) and English (`/en`) | `src/i18n/*`, `src/ui/*`, `app/[lang]/*` | `tests/decision-log-ar.test.ts` (2) | partial | Live AR plan works with 0 page errors. The provider line shows the raw value "rule-based" in Arabic. |
+| Bilingual UI, Arabic RTL (`/ar`) and English (`/en`) | `src/i18n/*`, `src/ui/*`, `app/[lang]/*` | `tests/decision-log-ar.test.ts` (3) | works-and-tested | Live AR plan works with 0 page errors. The narration provider line is translated (Arabic "قائمة على القواعد", English "Rule-based (no LLM)") since the fix pass. |
 | Narration: rule-based default, optional OpenAI-compatible LLM (text only, falls back on error) | `src/llm/*` | `tests/agent.test.ts` | partial | LLM path tested with mocks only; production runs rule-based. |
 
 ## Evaluation and tooling

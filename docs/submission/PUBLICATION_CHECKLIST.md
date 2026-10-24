@@ -52,6 +52,5 @@ options are sent; member names stay on the server).
 
 ## Known gaps to state openly
 
-- ⚠️ Step 7 of the demo needs headcount 20 (documented in the judge instructions).
 - ⚠️ Approvals sandbox is in memory; rate limits are per instance.
 - ⚠️ No sign-in, booking or payment (by design for the demo).

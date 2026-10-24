@@ -148,6 +148,12 @@ export function warningText(w: string, l: Lang): string {
 
 export const t = (key: keyof typeof UI, l: Lang): string => UI[key][l];
 
+/** Narration provider for display: the built-in narrator is translated; an LLM provider id is shown as-is. */
+export const providerText = (provider: string, l: Lang): string =>
+  provider === "rule-based"
+    ? l === "ar" ? "قائمة على القواعد (بدون نموذج لغوي)" : "Rule-based (no LLM)"
+    : provider;
+
 export const DECISION_LABEL: Record<Decision, Record<Lang, string>> = {
   auto_approved: { en: "Auto-approved", ar: "موافقة تلقائية" },
   needs_manager_approval: { en: "Needs manager approval", ar: "يحتاج موافقة المدير" },

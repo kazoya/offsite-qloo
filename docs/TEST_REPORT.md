@@ -126,12 +126,41 @@ replan to 25 JOD (200, still 3 buttons, "What changed" shown, 0 not met). Nothin
 The Fairness Engine did not break the Qloo integration, planning or approvals: steps 2–7 above pass, the fresh plan
 still makes its Qloo calls (4), the replan reuses them (0 new calls), and the sandbox approval flow works end to end.
 
-## Known issues (not demo-blocking; none fixed in this pass)
+## Known issues found in sections 1–7 (not demo-blocking; 1, 3 and 4 fixed in section 8)
 
 1. **Step 7 needs a change in the form.** With the default demo company (12 people, about 233 JOD total) no option
    exceeds the R2 threshold (400 USD ≈ 284 JOD), so no "Send to manager" button appears. Workaround for judges: set
-   headcount to 20 before planning. Possible fix (needs approval, not done): default the demo company to 20 people.
+   headcount to 20 before planning. Possible fix (needs approval, not done): default the demo company to 20 people. **Fixed in section 8.**
 2. **Rate limit is per instance and per IP.** It is in memory, so it is not a global limit across Vercel instances.
-3. **Arabic provider line** shows the raw value `rule-based` (`src/ui/Planner.tsx`).
-4. **`/favicon.ico` returns 404**, which logs one console error.
+3. **Arabic provider line** shows the raw value `rule-based` (`src/ui/Planner.tsx`). **Fixed in section 8.**
+4. **`/favicon.ico` returns 404**, which logs one console error. **Fixed in section 8.**
 5. **Approvals sandbox is in memory**: it resets when a server instance restarts.
+
+## 8. Fix pass on `fix/demo-polish` (2026-10-24, 12:30–12:35 Asia/Amman)
+
+Approved changes only: demo company headcount 20 (12 member profiles unchanged), translated narration provider label
+(`providerText` in `src/i18n/index.ts`), and a favicon (`app/favicon.ico`, `app/icon.svg`). No change to the
+experiment weights, metrics, results or seed.
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | exit 0 |
+| `npx vitest run` | 15 files, 149 tests passed (one new test for the provider label; the demo-company test now expects headcount 20) |
+| `rm -rf .next && npx next build` | exit 0; routes include `/icon.svg` and `/favicon.ico` |
+| Experiment rerun from the cache (seed 20261024, default and tight budgets) | 0 Qloo HTTP calls, 56 cache hits; both JSON files byte-identical to the committed ones |
+
+Local user path (`next start`, headless Chrome), one run:
+
+| Step | Check | Result |
+|---|---|---|
+| — | `/favicon.ico`, `/icon.svg` | 200 (`image/x-icon`, `image/svg+xml`); both linked in the page head; no non-API 4xx |
+| 1 | Load demo company | loaded; headcount field 20, budget 30 |
+| 2 | Plan | 200, 3 options |
+| 3 | "Why Qloo picked this" | 6 summaries, expand on click |
+| 4 | Fairness meter and labels (team average, lowest member, coverage, "Fairest", "Why option N may suit") | pass |
+| 5 | Budget feedback 25 JOD → replan | 200; fairness block still shown |
+| 6 | "What changed", decision log | present; 16 log steps |
+| 5b | Manager reject with a reason | 200 |
+| 7 | "Send to manager" with the default demo headcount | 3 buttons on the first plan and after the replans; send 201; sandbox banner, no PIN field; approve 200 |
+| EN | Provider line | "Narration: Rule-based (no LLM)" |
+| AR | `/ar` demo plan | 200; headcount 20; 3 send buttons; provider line "الصياغة: قائمة على القواعد (بدون نموذج لغوي)"; no Latin "rule-based"; 0 page errors |

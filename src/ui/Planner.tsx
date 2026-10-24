@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { alwaysLeftOutText, coverageLine, DECISION_LABEL, ERROR_TEXT, FAIRNESS_LABEL, fairnessExplanationText, money, renderReason, ruleText, t, warningText, WEEKDAY_LABEL, type ErrorCode } from "@/i18n";
+import { alwaysLeftOutText, coverageLine, DECISION_LABEL, ERROR_TEXT, FAIRNESS_LABEL, fairnessExplanationText, money, providerText, renderReason, ruleText, t, warningText, WEEKDAY_LABEL, type ErrorCode } from "@/i18n";
 import type { Candidate, Feedback, Lang, Plan, PlanOption } from "@/agent/types";
 import type { AgentReport } from "@/agent/loop";
 import { diffViews } from "@/agent/diff";
@@ -407,7 +407,7 @@ export function Planner({ lang: l, cities, unsupported, cuisines, activities, di
               </p>
             )}
             <p className="muted">
-              {t("locality", l)}: <bdi>{plan.locality ?? "?"}</bdi> · {t("provider", l)}: {plan.provider}
+              {t("locality", l)}: <bdi>{plan.locality ?? "?"}</bdi> · {t("provider", l)}: <bdi>{providerText(plan.provider, l)}</bdi>
             </p>
             <p className="muted">{t("budgetNote", l)}</p>
             <div className="chips">

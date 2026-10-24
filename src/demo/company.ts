@@ -1,5 +1,6 @@
 /**
- * "Load demo company": a synthetic 12-person team for the judge demo. The member names and tastes are invented
+ * "Load demo company": a synthetic team for the judge demo: 12 member taste profiles, 20 people attending (so the
+ * total crosses the default manager-approval threshold and step 7 of the demo has something to approve). The member names and tastes are invented
  * (no real employees); the artists are public names used only as taste seeds for Qloo.
  * Tastes form realistic overlapping clusters (a Levantine/grill group, a cafe/Italian/sushi group, a burgers/grill
  * group; culture fans and bowling/escape-room fans), so most members can be covered while options still differ.
@@ -19,7 +20,7 @@ export const DEMO_COMPANY = {
   nameAr: "نيمبس للتحليلات (شركة تجريبية)",
   city: "Amman",
   budgetPerPerson: 30,
-  headcount: 12,
+  headcount: 20,
   date: "2026-11-12",
   startTime: "18:00",
   members: [

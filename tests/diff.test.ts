@@ -56,10 +56,10 @@ describe("diffPlans", () => {
 });
 
 describe("demo company", () => {
-  it("is a 12-person synthetic team with a set budget and varied tastes from the catalog", async () => {
+  it("is a synthetic team of 12 profiles for 20 people with a set budget and varied tastes from the catalog", async () => {
     const { CUISINES, ACTIVITIES, DIETARY } = await import("../src/connectors/qloo/catalog");
     expect(DEMO_COMPANY.members).toHaveLength(12);
-    expect(DEMO_COMPANY.headcount).toBe(12);
+    expect(DEMO_COMPANY.headcount).toBe(20);
     expect(DEMO_COMPANY.budgetPerPerson).toBeGreaterThan(0);
     expect(new Set(DEMO_COMPANY.members.map((m) => m.name)).size).toBe(12);
     const keys = (xs: readonly { key: string }[]) => new Set(xs.map((x) => x.key));

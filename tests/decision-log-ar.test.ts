@@ -49,3 +49,13 @@ describe("Arabic decision log", () => {
     for (const e of plan.agent.log) expect(logText(e, "en")).toEqual({ decision: e.decision, reason: e.reason });
   });
 });
+
+describe("narration provider label", () => {
+  it("translates the built-in narrator and shows an LLM provider id as-is", async () => {
+    const { providerText } = await import("../src/i18n");
+    expect(providerText("rule-based", "ar")).not.toMatch(/rule-based/);
+    expect(providerText("rule-based", "ar")).toMatch(/القواعد/);
+    expect(providerText("rule-based", "en")).toBe("Rule-based (no LLM)");
+    expect(providerText("openai-compatible:some-model", "ar")).toBe("openai-compatible:some-model");
+  });
+});

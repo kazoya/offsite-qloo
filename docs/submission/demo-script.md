@@ -14,9 +14,8 @@ Implementation, Design, Potential Impact, Quality of the Idea.
 1. Open https://offsite-qloo.vercel.app/en in a fresh browser window (a fresh window also gets an empty approvals
    sandbox). Desktop width; zoom 100 %.
 2. Rehearse once. If the app shows "Qloo unavailable", wait a minute and use Retry.
-3. **Step 7 needs an option above the approval threshold.** With the default 12 people the total stays under
-   284 JOD, so set **Headcount to 20** right after loading the demo company. Verified: with headcount 20, the plan and
-   a budget replan to 25 JOD each showed 3 "Send to manager" buttons.
+3. **Step 7 works with the defaults.** The demo company plans for 20 people, so the totals go above the 284 JOD
+   approval threshold and "Send to manager" buttons appear with no change to the form.
 
 ## Data handling while recording
 
@@ -29,7 +28,7 @@ Implementation, Design, Potential Impact, Quality of the Idea.
 
 | # | Time | Screen | Voiceover |
 |---|---|---|---|
-| 1 | 0:00–0:12 | Click **Load demo company (12 people)**; the synthetic team collapses into a summary. Set Headcount to 20. | "Planning a team outing means a dozen different tastes, a budget and a manager's sign-off. This agent starts from what each person actually likes." |
+| 1 | 0:00–0:12 | Click **Load demo company (20 people)**; the synthetic team collapses into a summary. | "Planning a team outing means a dozen different tastes, a budget and a manager's sign-off. This agent starts from what each person actually likes." |
 | 2 | 0:12–0:27 | Click **Plan the offsite**; skeleton, then 3 options (activity, then dinner). | "It turns the team's cuisines, activities and favourite artists into Qloo taste signals and asks Qloo's Insights API to rank real venues in Amman. Three different evenings come back, checked against opening hours, diets and the budget." |
 | 3 | 0:27–0:42 | Expand **Why Qloo picked this** on option 1; show the score breakdown. | "Each pick explains itself: which members it matches, which taste signal Qloo credits, and how affinity, member match and rating add up. Prices are labelled as estimates." |
 | 4 | 0:42–0:57 | Point at **Fairness and fit**: team average, lowest member, coverage, who is left out, the **Fairest** badge and "Why option N may suit the team better". | "The best score isn't always fair. The fairness engine shows, per option, who is covered and who is left out, and which option is fairest and what it costs." |
@@ -53,7 +52,7 @@ Implementation, Design, Potential Impact, Quality of the Idea.
 
 ## Recording checklist
 
-- [ ] Hosted demo is live and matches this script (headcount 20 set in shot 1).
+- [ ] Hosted demo is live and matches this script (demo company loads with headcount 20).
 - [ ] Repo is public with the MIT licence visible in About (owner action before submitting).
 - [ ] No raw Qloo data, cache, terminal or key on screen; no lingering on venue names.
 - [ ] 90–120 seconds, English audio or English subtitles.

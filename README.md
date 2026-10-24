@@ -92,7 +92,7 @@ diff (see the judge demo path below).
 
 ## Judge demo path (about 90–120 seconds)
 
-1. **Load demo company**: one click fills a synthetic 12-person team (invented names and tastes, Amman, 30 JOD per
+1. **Load demo company**: one click fills a synthetic team (12 invented member profiles, 20 people attending, Amman, 30 JOD per
    person) and collapses it into a summary.
 2. **Plan the offsite**: three options from Qloo, with the loading skeleton and retry on errors.
 3. **Why Qloo picked this**: expandable reasons (matched tags, artist links, affinity) plus a score breakdown; every
@@ -103,8 +103,8 @@ diff (see the judge demo path below).
    (reason required). Each action replans with all feedback so far and reuses Qloo answers.
 6. **What changed**: old vs new per option (venues, estimated cost per person, fairness), the feedback checks, and the
    agent decision log (collapsible steps with decision, reason and timing).
-7. **Approvals**: send an option over the threshold to the manager and approve it in your own demo sandbox. With the
-   default 12 people every option stays under the threshold, so set **Headcount** to 20 before planning to see this step.
+7. **Approvals**: send an option over the threshold to the manager and approve it in your own demo sandbox. The demo
+   company defaults to 20 people, so its options go above the threshold without any change to the form.
 
 ## Approval policy and audit log
 
