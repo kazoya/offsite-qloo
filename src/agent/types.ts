@@ -131,3 +131,9 @@ export interface Plan {
   /** Per-member coverage across the shortlist and the Best fit / Fairest / Cheapest labels (absent with no options). */
   fairness?: FairnessReport;
 }
+
+/** Human feedback on a proposed plan; the agent loop replans with it (src/agent/loop.ts). */
+export type Feedback =
+  | { type: "budget"; budgetPerPerson: number; reason?: string }
+  | { type: "reject_venue"; entityId: string; reason?: string }
+  | { type: "not_fair"; member: string; reason?: string };

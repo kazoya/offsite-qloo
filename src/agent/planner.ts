@@ -26,6 +26,19 @@ export interface PlannerDeps {
   qloo: QlooLike;
   llm?: LLMProvider;
   now?: () => Date;
+  /** Called once per planner step with plain counts, so the agent loop can log what really happened. */
+  onStep?: (step: PlannerStep, facts: StepFacts) => void;
+}
+
+export type PlannerStep = "qloo_queries" | "rank" | "budget_time_check" | "propose" | "explain";
+export type StepFacts = Record<string, number | string | boolean | string[]>;
+
+/** Extra constraints from human feedback (see src/agent/loop.ts). Both are optional; {} plans as before. */
+export interface PlanConstraints {
+  /** Venues the team rejected: removed (with their other branches) before ranking. */
+  excludeEntityIds?: string[];
+  /** Members a reviewer said the plan was unfair to: options covering them are ranked first when any fit. */
+  prioritizeMembers?: string[];
 }
 
 /**
@@ -299,8 +312,9 @@ function humanWarnings(raw: string[], artists: ArtistSeed[]): string[] {
   });
 }
 
-export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<Plan> {
+export async function planOffsite(req: PlanRequest, deps: PlannerDeps, constraints: PlanConstraints = {}): Promise<Plan> {
   const { qloo } = deps;
+  const step = deps.onStep ?? (() => {});
   const city = cityProfile(req.city);
   const startCalls = qloo.httpCalls;
   const warnings: string[] = [];
@@ -378,6 +392,37 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
     fallbackKeys: actFallback,
     needs: [],
   });
+  step("qloo_queries", {
+    artistsResolved: artists.length,
+    restaurantsFromQloo: dinners.length,
+    activityVenuesFromQloo: activities.length,
+    activityFallbackUsed: actFallback.size > 0,
+    qlooHttpCalls: qloo.httpCalls - startCalls,
+  });
+
+  // ---- Feedback: drop rejected venues (and other branches of the same chain) before ranking -------------
+  const qlooDinnerCount = dinners.length;
+  const qlooActivityCount = activities.length;
+  const excludedIds = new Set(constraints.excludeEntityIds ?? []);
+  let excludedByFeedback = 0;
+  if (excludedIds.size > 0) {
+    const keys = new Set(
+      [...dinners, ...activities].filter((c) => excludedIds.has(c.place.entityId)).map((c) => chainKey(c.place)).filter(Boolean),
+    );
+    const keep = (c: Candidate) => !excludedIds.has(c.place.entityId) && !(chainKey(c.place) && keys.has(chainKey(c.place)));
+    for (const list of [dinners, activities]) {
+      const kept = list.filter(keep);
+      excludedByFeedback += list.length - kept.length;
+      list.splice(0, list.length, ...kept);
+    }
+  }
+  step("rank", {
+    restaurantsScored: dinners.length,
+    activityVenuesScored: activities.length,
+    excludedByFeedback,
+    topRestaurant: dinners[0]?.place.nameEn ?? "",
+    topActivity: activities[0]?.place.nameEn ?? "",
+  });
 
   // ---- Opening hours: drop venues Qloo says are closed in their slot; flag unknown hours honestly ------
   const startMin = parseClock(req.startTime ?? SCHEDULE.defaultStart) ?? parseClock(SCHEDULE.defaultStart)!;
@@ -387,8 +432,6 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   for (const [n, one, many] of [[dinOpen.excluded, "restaurant", "restaurants"], [actOpen.excluded, "activity venue", "activity venues"]] as const) {
     if (n > 0) warnings.push(`${n} ${n === 1 ? `${one} was` : `${many} were`} left out because Qloo opening hours show them closed at the planned time.`);
   }
-  const scoredDinnerCount = dinners.length;
-  const scoredActivityCount = activities.length;
   dinners.splice(0, dinners.length, ...dinOpen.kept);
   activities.splice(0, activities.length, ...actOpen.kept);
 
@@ -412,6 +455,14 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   const topD = [...dinnerPool.filter(affordable).slice(0, 8), ...dinnerPool.filter((d) => !affordable(d)).slice(0, 3)];
   const byScore = (x: { score: number }, y: { score: number }) => y.score - x.score;
   const topA = activitiesU.slice(0, 8);
+  // Feedback "not fair to X": make sure venues X actually likes are in the shortlist pool.
+  const prio = (constraints.prioritizeMembers ?? []).filter((m) => memberNames.includes(m));
+  for (const m of prio) {
+    for (const d of dinnerPool.filter((d) => affordable(d) && d.membersCovered.includes(m)).slice(0, 3)) if (!topD.includes(d)) topD.push(d);
+    for (const a of activitiesU.filter((a) => a.membersCovered.includes(m)).slice(0, 3)) if (!topA.includes(a)) topA.push(a);
+  }
+  const coversPrio = (c: { d: Candidate; a: Candidate }) =>
+    prio.every((m) => c.d.membersCovered.includes(m) || c.a.membersCovered.includes(m));
   const combos = topD
     .flatMap((d) => topA.map((a) => ({ d, a, score: COMBO.dinner * d.score.total + COMBO.activity * a.score.total })))
     .sort(byScore);
@@ -425,7 +476,9 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   const within = combos.filter((c) => money(c.d, c.a).pp <= req.budgetPerPerson);
   const over = combos.filter((c) => money(c.d, c.a).pp > req.budgetPerPerson);
 
-  const picked = pickDiverse(within, MAX_OPTIONS);
+  // With prioritised members, combos covering all of them go first (stable), so they win the shortlist when they fit.
+  const candidates = prio.length ? [...within.filter(coversPrio), ...within.filter((c) => !coversPrio(c))] : within;
+  const picked = pickDiverse(candidates, MAX_OPTIONS);
   const distinctDinners = new Set(picked.map((c) => c.d.place.entityId)).size;
   if (distinctDinners < picked.length) {
     warnings.push(
@@ -434,7 +487,11 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   }
 
   // Rank follows the blended score (selection order only decides which combos make the shortlist).
-  picked.sort(byScore);
+  picked.sort((x, y) => (prio.length ? Number(coversPrio(y)) - Number(coversPrio(x)) : 0) || byScore(x, y));
+  const prioCovered = prio.length > 0 && picked.some(coversPrio);
+  if (prio.length > 0 && !prioCovered && picked.length > 0) {
+    warnings.push(`No option within budget covers ${prio.join(" and ")}'s picks; the plan could not be made fairer to them.`);
+  }
 
   // Audit every shortlisted decision plus the best rejected ones (so rejections are visible and justified).
   const options: PlanOption[] = picked.map((c, i) => {
@@ -469,8 +526,8 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
     });
   }
 
-  if (scoredDinnerCount === 0) warnings.push("Qloo returned no restaurants for this location.");
-  if (scoredActivityCount === 0) warnings.push("Qloo returned no activity venues for this location.");
+  if (qlooDinnerCount === 0) warnings.push("Qloo returned no restaurants for this location.");
+  if (qlooActivityCount === 0) warnings.push("Qloo returned no activity venues for this location.");
   const unknownHours = new Set(
     options.flatMap((o) => [o.dinner, o.activity]).filter((c) => c.hours?.status === "unknown").map((c) => c.place.entityId),
   ).size;
@@ -478,6 +535,23 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   if (options.length === 0 && dinners.length > 0 && activities.length > 0) {
     warnings.push("No dinner + activity combination fits the budget per person.");
   }
+  step("budget_time_check", {
+    restaurantsClosed: dinOpen.excluded,
+    activityVenuesClosed: actOpen.excluded,
+    dietUnconfirmed: unconfirmedCount,
+    combosConsidered: combos.length,
+    combosWithinBudget: within.length,
+    combosOverBudget: over.length,
+    budgetPerPerson: req.budgetPerPerson,
+  });
+  step("propose", {
+    options: options.length,
+    distinctRestaurants: distinctDinners,
+    cheapestPerPerson: options.length ? Math.min(...options.map((o) => o.costPerPerson)) : 0,
+    needsManagerApproval: options.filter((o) => o.decision === "needs_manager_approval").length,
+    prioritizedMembers: prio,
+    prioritizedCovered: prioCovered,
+  });
   if (!dinnerRes.locality) warnings.push("Qloo did not report which locality it matched.");
 
   const seeds: Plan["seeds"] = [
@@ -514,5 +588,11 @@ export async function planOffsite(req: PlanRequest, deps: PlannerDeps): Promise<
   plan.overview = n.narration.overview;
   plan.options.forEach((o, i) => (o.summary = n.narration.summaries[i]));
   if (n.warning) plan.warnings.push(n.warning);
+  step("explain", {
+    provider: plan.provider,
+    summaries: plan.options.filter((o) => o.summary).length,
+    fairestRank: plan.fairness?.fairestRank ?? 0,
+    bestFitLeavesOut: plan.fairness?.options[0]?.leftOut ?? [],
+  });
   return plan;
 }

@@ -90,7 +90,7 @@ export const UI = {
   loading: { en: "Loading...", ar: "جارٍ التحميل..." },
 } satisfies Record<string, Record<Lang, string>>;
 
-export type ErrorCode = "bad_json" | "validation" | "unsupported_city" | "no_key" | "qloo_down" | "qloo_auth" | "internal" | "network";
+export type ErrorCode = "bad_json" | "validation" | "unsupported_city" | "no_key" | "qloo_down" | "qloo_auth" | "internal" | "network" | "timeout" | "rate_limited" | "too_large";
 
 /** Localised, honest error copy keyed by the API error code. */
 export type PinErrorCode = "pin_required" | "pin_invalid" | "approvals_disabled" | "pin_locked";
@@ -113,6 +113,9 @@ export const ERROR_TEXT: Record<ErrorCode, Record<Lang, string>> = {
   qloo_auth: { en: "Qloo rejected the server's API key.", ar: "رفض Qloo مفتاح الخادم." },
   internal: { en: "Unexpected server error.", ar: "خطأ غير متوقع في الخادم." },
   network: { en: "Could not reach the server. Check your connection.", ar: "تعذّر الوصول إلى الخادم. تحقق من الاتصال." },
+  timeout: { en: "Planning took too long and was stopped. Nothing was booked; please try again.", ar: "استغرق التخطيط وقتًا طويلًا فتم إيقافه. لم يُحجز شيء؛ حاول مرة أخرى." },
+  rate_limited: { en: "Too many requests from this connection. Please wait a minute and try again.", ar: "طلبات كثيرة من هذا الاتصال. انتظر دقيقة ثم حاول مرة أخرى." },
+  too_large: { en: "The request is too large.", ar: "الطلب كبير جدًا." },
 };
 
 /** Arabic rendering of the planner's English notes. Unknown notes are shown as-is (English) rather than guessed. */
@@ -130,6 +133,7 @@ const WARNING_AR: [RegExp, (m: RegExpMatchArray) => string][] = [
   [/^Qloo has no exact artist match for "(.+)" \(closest: "(.+)"\); it was skipped\.$/, (m) => `لا يوجد في Qloo فنان يطابق "${m[1]}" تمامًا (الأقرب: "${m[2]}")؛ تم تجاهله.`],
   [/^Qloo has no venue-graph data for artist "(.+)" \((.+)'s pick\); it did not influence ranking\.$/, (m) => `لا توجد بيانات أماكن في Qloo للفنان "${m[1]}" (اختيار ${m[2]})؛ لم يؤثر على الترتيب.`],
   [/^Unknown (cuisine|activity|dietary need) "(.+)" from (.+) was ignored\.$/, (m) => `تم تجاهل قيمة غير معروفة "${m[2]}" من ${m[3]}.`],
+  [/^No option within budget covers (.+)'s picks; the plan could not be made fairer to them\.$/, (m) => `لا يوجد خيار ضمن الميزانية يغطي اختيارات ${(m[1] ?? "").replace(/ and /g, " و")}؛ تعذّر جعل الخطة أكثر عدلًا له.`],
   [/^LLM provider .+ failed .*; used rule-based narration\.$/, () => "تعذّر مزوّد النموذج اللغوي؛ استخدمنا الصياغة القائمة على القواعد."],
 ];
 

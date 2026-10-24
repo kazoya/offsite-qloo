@@ -1,5 +1,7 @@
 import { CITIES, unsupportedCity } from "../connectors/qloo/catalog";
-import type { Lang, Member, PlanRequest } from "./types";
+import type { Feedback, Lang, Member, PlanRequest } from "./types";
+
+const MAX_FEEDBACK = 10;
 
 export class ValidationError extends Error {
   readonly code: "validation" | "unsupported_city" = "validation";
@@ -62,4 +64,44 @@ export function parsePlanRequest(body: unknown): PlanRequest {
     req.approvalThreshold = t;
   }
   return req;
+}
+
+/** Validates the optional `feedback` list of a plan request against the (already validated) request. */
+export function parseFeedback(raw: unknown, req: PlanRequest): Feedback[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw new ValidationError("feedback must be a list.");
+  if (raw.length > MAX_FEEDBACK) throw new ValidationError(`feedback can have at most ${MAX_FEEDBACK} items.`);
+  const names = new Set(req.team.map((m) => m.name));
+  return raw.map((f, i): Feedback => {
+    if (!f || typeof f !== "object") throw new ValidationError(`feedback[${i}] must be an object.`);
+    const o = f as Record<string, unknown>;
+    let reason: string | undefined;
+    if (o.reason !== undefined) {
+      if (typeof o.reason !== "string" || o.reason.length > 200) throw new ValidationError(`feedback[${i}].reason must be text up to 200 characters.`);
+      reason = o.reason.trim() || undefined;
+    }
+    const withReason = <T extends object>(x: T) => (reason ? { ...x, reason } : x);
+    switch (o.type) {
+      case "budget": {
+        const b = o.budgetPerPerson;
+        if (typeof b !== "number" || !Number.isFinite(b) || b <= 0 || b > 100000) {
+          throw new ValidationError(`feedback[${i}].budgetPerPerson must be a number between 0 and 100000.`);
+        }
+        return withReason({ type: "budget" as const, budgetPerPerson: b });
+      }
+      case "reject_venue": {
+        const id = o.entityId;
+        if (typeof id !== "string" || id.length === 0 || id.length > 80 || !/^[\w:-]+$/.test(id)) {
+          throw new ValidationError(`feedback[${i}].entityId must be a Qloo entity id.`);
+        }
+        return withReason({ type: "reject_venue" as const, entityId: id });
+      }
+      case "not_fair": {
+        if (typeof o.member !== "string" || !names.has(o.member)) throw new ValidationError(`feedback[${i}].member must be one of the team's names.`);
+        return withReason({ type: "not_fair" as const, member: o.member });
+      }
+      default:
+        throw new ValidationError(`feedback[${i}].type must be budget, reject_venue or not_fair.`);
+    }
+  });
 }
